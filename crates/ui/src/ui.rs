@@ -157,54 +157,52 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
             }
             _ => {}
         },
-        Screen::Main => {
-            match key.code {
-                KeyCode::Char('q') => return Ok(true),
-                KeyCode::Char('a') => {
-                    app.screen = Screen::AddItem;
-                }
-                KeyCode::Char('c') => {
-                    app.copy_selected()?;
-                }
-                KeyCode::Char('v') => {
-                    app.view_selected();
-                }
-                KeyCode::Char('e') => {
-                    app.edit_selected();
-                }
-                KeyCode::Char('k') => {
-                    app.ck_current.clear();
-                    app.ck_new.clear();
-                    app.ck_confirm.clear();
-                    app.ck_focus = ChangeKeyField::Current;
-                    app.error = None;
-                    app.screen = Screen::ChangeMaster;
-                }
-                KeyCode::Char('g') => {
-                    app.open_password_generator();
-                }
-                KeyCode::Char('x') => {
-                    app.open_import_export(ImportExportMode::Export);
-                }
-                KeyCode::Char('i') => {
-                    app.open_import_export(ImportExportMode::Import);
-                }
-
-                KeyCode::Char('d') => {
-                    app.delete_selected()?;
-                }
-                KeyCode::Down => {
-                    app.selected = (app.selected + 1).min(app.items.len().saturating_sub(1));
-                }
-                KeyCode::Up => {
-                    app.selected = app.selected.saturating_sub(1);
-                }
-                KeyCode::Char('r') => {
-                    app.refresh_items()?;
-                }
-                _ => {}
+        Screen::Main => match key.code {
+            KeyCode::Char('q') => return Ok(true),
+            KeyCode::Char('a') => {
+                app.screen = Screen::AddItem;
             }
-        }
+            KeyCode::Char('c') => {
+                app.copy_selected()?;
+            }
+            KeyCode::Char('v') => {
+                app.view_selected();
+            }
+            KeyCode::Char('e') => {
+                app.edit_selected();
+            }
+            KeyCode::Char('k') => {
+                app.ck_current.clear();
+                app.ck_new.clear();
+                app.ck_confirm.clear();
+                app.ck_focus = ChangeKeyField::Current;
+                app.error = None;
+                app.screen = Screen::ChangeMaster;
+            }
+            KeyCode::Char('g') => {
+                app.open_password_generator();
+            }
+            KeyCode::Char('x') => {
+                app.open_import_export(ImportExportMode::Export);
+            }
+            KeyCode::Char('i') => {
+                app.open_import_export(ImportExportMode::Import);
+            }
+
+            KeyCode::Char('d') => {
+                app.delete_selected()?;
+            }
+            KeyCode::Down => {
+                app.selected = (app.selected + 1).min(app.items.len().saturating_sub(1));
+            }
+            KeyCode::Up => {
+                app.selected = app.selected.saturating_sub(1);
+            }
+            KeyCode::Char('r') => {
+                app.refresh_items()?;
+            }
+            _ => {}
+        },
         Screen::AddItem => {
             match key.code {
                 KeyCode::Esc => {
@@ -287,45 +285,43 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
             }
         }
 
-        Screen::ImportExport => {
-            match key.code {
-                KeyCode::Esc => {
-                    app.screen = Screen::Main;
+        Screen::ImportExport => match key.code {
+            KeyCode::Esc => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Tab => {
+                app.ie_focus = match app.ie_focus {
+                    ImportExportField::Path => ImportExportField::Format,
+                    ImportExportField::Format => ImportExportField::Action,
+                    ImportExportField::Action => ImportExportField::Path,
+                };
+            }
+            KeyCode::Enter => {
+                if matches!(app.ie_focus, ImportExportField::Action) {
+                    app.execute_import_export()?;
                 }
-                KeyCode::Tab => {
-                    app.ie_focus = match app.ie_focus {
-                        ImportExportField::Path => ImportExportField::Format,
-                        ImportExportField::Format => ImportExportField::Action,
-                        ImportExportField::Action => ImportExportField::Path,
+            }
+            KeyCode::Left | KeyCode::Right if matches!(app.ie_focus, ImportExportField::Format) => {
+                if key.code == KeyCode::Right {
+                    app.ie_format_idx = (app.ie_format_idx + 1) % app.ie_formats.len();
+                } else {
+                    app.ie_format_idx = if app.ie_format_idx == 0 {
+                        app.ie_formats.len() - 1
+                    } else {
+                        app.ie_format_idx - 1
                     };
                 }
-                KeyCode::Enter => {
-                    if matches!(app.ie_focus, ImportExportField::Action) {
-                        app.execute_import_export()?;
-                    }
-                }
-                KeyCode::Left | KeyCode::Right if matches!(app.ie_focus, ImportExportField::Format) => {
-                    if key.code == KeyCode::Right {
-                        app.ie_format_idx = (app.ie_format_idx + 1) % app.ie_formats.len();
-                    } else {
-                        app.ie_format_idx = if app.ie_format_idx == 0 {
-                            app.ie_formats.len() - 1
-                        } else {
-                            app.ie_format_idx - 1
-                        };
-                    }
-                }
-                KeyCode::Backspace if matches!(app.ie_focus, ImportExportField::Path) => {
-                    app.ie_path.pop();
-                }
-                KeyCode::Char(c) if matches!(app.ie_focus, ImportExportField::Path) => {
-                    if !key.modifiers.contains(KeyModifiers::CONTROL) {
-                        app.ie_path.push(c);
-                    }
-                }
-                _ => {}
             }
-        }
+            KeyCode::Backspace if matches!(app.ie_focus, ImportExportField::Path) => {
+                app.ie_path.pop();
+            }
+            KeyCode::Char(c) if matches!(app.ie_focus, ImportExportField::Path) => {
+                if !key.modifiers.contains(KeyModifiers::CONTROL) {
+                    app.ie_path.push(c);
+                }
+            }
+            _ => {}
+        },
 
         Screen::ChangeMaster => match key.code {
             KeyCode::Esc => {
