@@ -1,8 +1,8 @@
 # Chamber
 A secure, local-first secrets manager built with Rust, featuring encrypted storage, intuitive terminal UI, and comprehensive import/export capabilities.
 
-![CI](https://github.com/mikeleppane/visualvault/workflows/CI/badge.svg)
-[![codecov](https://codecov.io/gh/mikeleppane/visualvault/branch/main/graph/badge.svg)](https://codecov.io/gh/mikeleppane/visualvault)
+![CI](https://github.com/mikeleppane/chamber/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/mikeleppane/chamber/branch/main/graph/badge.svg)](https://codecov.io/gh/mikeleppane/chamber)
 [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/CodSpeedHQ/codspeed-rust)
 
 <img alt="Rust" src="https://img.shields.io/badge/Rust-1.85-orange">
@@ -21,9 +21,22 @@ Chamber is a modern secret management solution designed for developers and secur
 
 ### 📸 Screenshots
 
+<p align="center">
+  <img src="images/main.png" alt="VisualVault's Main Page" />
+  <span>Chamber's Main Page</span>
+</p>
+
+<p align="center">
+  <img src="images/unlock.png" alt="VisualVault's Settings Page" />
+  <span>Chamber's Login Page</span>
+</p>
 
 ### 🎥 Introduction Videos
+[![Watch the video](https://img.youtube.com/vi/iuYMKGDuZW8/maxresdefault.jpg)](https://youtu.be/iuYMKGDuZW8)
 
+<p align="center">
+  <i>Click the image above to watch a quick introduction to Chamber</i>
+</p>
 
 ## 📚 Table of Contents
 - [Getting Started](#getting-started)
