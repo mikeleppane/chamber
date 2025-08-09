@@ -1,0 +1,21 @@
+[package]
+name = "chamber"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chamber-cli = {workspace = true}
+chamber-ui = {workspace = true}
+crossterm = {workspace = true}
+anyhow = {workspace = true}
+clap = {workspace = true}
+
+[target.'cfg(windows)'.dependencies]
+mimalloc = "0.1"
+
+[target.'cfg(not(windows))'.dependencies]
+jemallocator = "0.5"
+
+[[bin]]
+name = "chamber"
+path = "src/main.rs"

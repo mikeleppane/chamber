@@ -1,0 +1,10 @@
+[package]
+name = "chamber-password-gen"
+version = "0.1.0"
+edition = "2024"
+description = "Password generation utilities for Chamber secrets manager"
+
+[dependencies]
+anyhow = { workspace = true }
+rand = { workspace = true }
+

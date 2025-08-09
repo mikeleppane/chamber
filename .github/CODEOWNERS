@@ -1,0 +1,65 @@
+# VisualVault CODEOWNERS
+# This file defines the code owners for different parts of the repository.
+# Code owners are automatically requested for review when someone opens a pull request
+# that modifies code that they own.
+
+# Default owners for everything in the repo
+# These owners will be requested for review when someone opens a pull request
+# unless a later match takes precedence
+* @mikko
+
+# Core functionality
+/src/core/ @mikko
+/src/core/scanner.rs @mikko
+/src/core/organizer.rs @mikko
+/src/core/duplicate.rs @mikko
+/src/core/file_cache.rs @mikko
+
+# Configuration and settings
+/src/config/ @mikko
+/src/config/settings.rs @mikko
+
+# UI components
+/src/ui/ @mikko
+/src/ui/dashboard.rs @mikko
+/src/ui/settings.rs @mikko
+/src/ui/help.rs @mikko
+
+# Models and data structures
+/src/models/ @mikko
+
+# Utilities
+/src/utils/ @mikko
+
+# Application entry and main logic
+/src/main.rs @mikko
+/src/app.rs @mikko
+/src/app/ @mikko
+
+# Storage providers
+/src/storage/ @mikko
+/src/storage/google_drive.rs @mikko
+
+# Tests
+/tests/ @mikko
+/src/**/tests.rs @mikko
+/src/**/*_tests.rs @mikko
+
+# Documentation
+*.md @mikko
+/docs/ @mikko
+README.md @mikko
+CONTRIBUTING.md @mikko
+
+# CI/CD and GitHub configuration
+/.github/ @mikko
+/.github/workflows/ @mikko
+/.github/ISSUE_TEMPLATE/ @mikko
+/.github/pull_request_template.md @mikko
+
+# Build and configuration files
+Cargo.toml @mikko
+Cargo.lock @mikko
+rust-toolchain.toml @mikko
+.rustfmt.toml @mikko
+.clippy.toml @mikko

@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: visualvault
+            asset_name: visualvault-linux-amd64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: visualvault.exe
+            asset_name: visualvault-windows-amd64.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: visualvault
+            asset_name: visualvault-macos-amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lld clang
+      
+      - name: Build
+        run: cargo build --target ${{ matrix.target }} --release
+      
+      # Rename the binary to match the asset name to avoid conflicts
+      - name: Rename binary
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            # Windows binary already has .exe extension
+            cp ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }} ./${{ matrix.asset_name }}
+          else
+            # Linux and macOS binaries
+            cp ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }} ./${{ matrix.asset_name }}
+          fi
+        shell: bash
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ./${{ matrix.asset_name }}
+
+  create-release:
+    name: Create Release
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      
+      # Debug: List what was downloaded
+      - name: List artifacts
+        run: |
+          echo "Contents of ./artifacts:"
+          find ./artifacts -type f -ls
+      
+      # Move files to have unique names in the root artifacts directory
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          
+          # Move each file from its subdirectory to the release-assets directory
+          # The subdirectories are named after the artifact names
+          if [ -f "./artifacts/visualvault-linux-amd64/visualvault-linux-amd64" ]; then
+            cp "./artifacts/visualvault-linux-amd64/visualvault-linux-amd64" ./release-assets/
+          fi
+          
+          if [ -f "./artifacts/visualvault-windows-amd64.exe/visualvault-windows-amd64.exe" ]; then
+            cp "./artifacts/visualvault-windows-amd64.exe/visualvault-windows-amd64.exe" ./release-assets/
+          fi
+          
+          if [ -f "./artifacts/visualvault-macos-amd64/visualvault-macos-amd64" ]; then
+            cp "./artifacts/visualvault-macos-amd64/visualvault-macos-amd64" ./release-assets/
+          fi
+          
+          echo "Contents of ./release-assets:"
+          ls -la ./release-assets/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: ./release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
