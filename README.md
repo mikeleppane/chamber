@@ -213,11 +213,12 @@ flowchart TD
     E --> F[Encrypt/Decrypt Items]
     
     G[Item Data] --> H[Associated Data]
-    H --> I[name || kind]
+    H --> I[name + kind]
     I --> F
     F --> J[ChaCha20-Poly1305]
     J --> K[Encrypted Item]
 ```
+
 ## 🛠️ Usage
 ### Command Line Interface
 Chamber provides a comprehensive CLI for all operations:
