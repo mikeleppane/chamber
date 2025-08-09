@@ -181,15 +181,12 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                     app.screen = Screen::ChangeMaster;
                 }
                 KeyCode::Char('g') => {
-                    // NEW: open password generator
                     app.open_password_generator();
                 }
                 KeyCode::Char('x') => {
-                    // NEW: Open export dialog
                     app.open_import_export(ImportExportMode::Export);
                 }
                 KeyCode::Char('i') => {
-                    // NEW: Open import dialog
                     app.open_import_export(ImportExportMode::Import);
                 }
 
@@ -291,7 +288,6 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
         }
 
         Screen::ImportExport => {
-            // NEW: Handle import/export screen
             match key.code {
                 KeyCode::Esc => {
                     app.screen = Screen::Main;
@@ -368,7 +364,6 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
             _ => {}
         },
         Screen::GeneratePassword => {
-            // NEW: Handle password generation screen
             match key.code {
                 KeyCode::Esc => {
                     app.screen = Screen::Main;
@@ -786,11 +781,11 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         ]),
         Line::from(vec![
             Span::styled("x ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
-            Span::raw("Export items"), // NEW
+            Span::raw("Export items"),
         ]),
         Line::from(vec![
             Span::styled("i ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
-            Span::raw("Import items"), // NEW
+            Span::raw("Import items"),
         ]),
         Line::from(vec![
             Span::styled("d ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),

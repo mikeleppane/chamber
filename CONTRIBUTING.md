@@ -1,352 +1,349 @@
-# Contributing to VisualVault
+# Contributing to Chamber 🤝
 
-First off, thank you for considering contributing to VisualVault! It's people like you that make VisualVault
-such a great tool. 🎉
+Thank you for your interest in contributing to Chamber! We welcome contributions from everyone, whether you're fixing bugs, adding features, improving documentation, or helping with testing.
 
-## Table of Contents
+## 📋 Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
-- [How Can I Contribute?](#how-can-i-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Enhancements](#suggesting-enhancements)
-  - [Your First Code Contribution](#your-first-code-contribution)
-  - [Pull Requests](#pull-requests)
 - [Development Setup](#development-setup)
-- [Style Guidelines](#style-guidelines)
-  - [Git Commit Messages](#git-commit-messages)
-  - [Rust Style Guide](#rust-style-guide)
-  - [Documentation Style Guide](#documentation-style-guide)
-- [Testing Guidelines](#testing-guidelines)
-- [Project Structure](#project-structure)
+- [How to Contribute](#how-to-contribute)
+- [Development Guidelines](#development-guidelines)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Security Considerations](#security-considerations)
+- [Pull Request Process](#pull-request-process)
 - [Community](#community)
 
-## Code of Conduct
+## 📜 Code of Conduct
 
-This project and everyone participating in it is governed by our Code of Conduct.
-By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
+This project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
 
-## Getting Started
-
-1. Fork the repository on GitHub
-2. Clone your fork locally
-3. Create a new branch for your feature or bugfix
-4. Make your changes
-5. Run tests and ensure they pass
-6. Commit your changes
-7. Push to your fork
-8. Create a Pull Request
-
-## How Can I Contribute?
-
-### Reporting Bugs
-
-Before creating bug reports, please check existing issues as you might find out that you don't need to create one.
-When you are creating a bug report, please include as many details as possible:
-
-**Bug Report Template:**
-
-```markdown
-**Describe the bug**
-A clear and concise description of what the bug is.
-
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
-
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Environment:**
- - OS: [e.g. Ubuntu 22.04, macOS 13, Windows 11]
- - Rust version: [e.g. 1.85.0]
- - VisualVault version/commit: [e.g. 0.1.0 or commit hash]
-
-**Additional context**
-Add any other context about the problem here.
-```
-
-### Suggesting Enhancements
-
-Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
-
-- **Use a clear and descriptive title**
-- **Provide a step-by-step description** of the suggested enhancement
-- **Provide specific examples** to demonstrate the steps
-- **Describe the current behavior** and explain which behavior you expected to see instead
-- **Explain why this enhancement would be useful** to most VisualVault users
-
-### Your First Code Contribution
-
-Unsure where to begin contributing? You can start by looking through these issues:
-
-- Issues labeled `good first issue` - issues which should be relatively simple to implement
-- Issues labeled `help wanted` - issues which need extra attention
-- Issues labeled `documentation` - improvements or additions to documentation
-
-### Pull Requests
-
-1. **Fork and clone the repository**
-2. **Create a new branch**: `git checkout -b feature/your-feature-name`
-3. **Make your changes** and add tests for them
-4. **Run the test suite**: `cargo test` and `cargo nextest run`
-5. **Run clippy**: `cargo clippy -- -D warnings`
-6. **Format your code**: `cargo fmt`
-7. **Commit your changes**: Use a descriptive commit message
-8. **Push to your fork**: `git push origin feature/your-feature-name`
-9. **Submit a pull request**
-
-## Development Setup
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Rust 1.85 or higher
-- Git
-- A terminal emulator with good Unicode support
+Before you begin, ensure you have the following installed:
 
-### Building the Project
+- **Rust 1.89.0 or newer**: Install via [rustup](https://rustup.rs/)
+- **Git**: For version control
+- **A modern terminal**: For testing the TUI components
+
+### Development Dependencies
+
+Install additional development tools:
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/visualvault.git
-cd visualvault
+# Essential tools
+cargo install cargo-nextest      # Better test runner
+cargo install cargo-watch       # File watching
+cargo install cargo-tarpaulin   # Code coverage
+cargo install cargo-audit       # Security auditing
+cargo install cargo-deny        # License and dependency checking
 
-# Build in debug mode
-cargo build
-
-# Build in release mode
-cargo build --release
-
-# Run the application
-cargo run
-
-# Run with debug logging
-RUST_LOG=debug cargo run
+# Optional but recommended
+cargo install cargo-machete     # Find unused dependencies
+cargo install cargo-outdated    # Check for outdated dependencies
+cargo install flamegraph        # Performance profiling
 ```
+```
+## 🛠️ Development Setup
+1. **Fork and clone the repository**:
+``` bash
+   git clone https://github.com/your-username/chamber.git
+   cd chamber
+```
+1. **Set up the development environment**:
+``` bash
+   # Check that everything compiles
+   cargo check --all-targets --all-features
+   
+   # Run the test suite
+   cargo test
+   
+   # Format code
+   cargo fmt
+   
+   # Run linter
+   cargo clippy --all-targets --all-features -- -D warnings
+```
+1. **Verify the setup**:
+``` bash
+   # Build and test the project
+   cargo build
+   cargo test --all-features
+   
+   # Try running Chamber
+   cargo run -- --help
+```
+## 🤝 How to Contribute
+### Ways to Contribute
+- 🐛 **Bug Reports**: Found a bug? Please report it!
+- 💡 **Feature Requests**: Have an idea? We'd love to hear it!
+- 🔧 **Bug Fixes**: Fix bugs and submit pull requests
+- ✨ **New Features**: Implement new functionality
+- 📚 **Documentation**: Improve docs, add examples
+- 🧪 **Testing**: Add tests, improve test coverage
+- 🎨 **UI/UX**: Improve the terminal interface
+- 🔐 **Security**: Security reviews and improvements
 
+### Finding Work
+- Check the [Issues](https://github.com/your-org/chamber/issues) page
+- Look for issues labeled `good first issue` or `help wanted`
+- Check the [project roadmap](https://github.com/your-org/chamber/projects)
+- Improve documentation or add examples
+
+## 📐 Development Guidelines
+### Code Style
+We follow standard Rust conventions:
+``` bash
+# Format your code
+cargo fmt
+
+# Check for common mistakes
+cargo clippy --all-targets --all-features -- -D warnings
+
+# Check for typos
+typos
+
+# Ensure documentation builds
+cargo doc --no-deps --all-features
+```
+### Coding Standards
+- **Error Handling**: Use for application errors, specific error types for library code `anyhow`
+- **Documentation**: All public APIs must have documentation
+- **Testing**: New features require tests
+- **Security**: Security-sensitive code needs extra attention and review
+- **Performance**: Consider performance implications, especially for crypto operations
+
+### Project Structure
+``` 
+chamber/
+├── crates/
+│   ├── vault/           # Core vault logic and cryptography
+│   ├── cli/             # Command-line interface
+│   ├── tui/             # Terminal user interface
+│   └── import-export/   # Data serialization and migration
+├── src/                 # Main binary and application logic
+├── tests/              # Integration tests
+├── benches/            # Performance benchmarks
+├── docs/               # Additional documentation
+└── examples/           # Usage examples
+```
+### Commit Messages
+Use conventional commit format:
+``` 
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+**Types**: `feat`, , `docs`, `test`, `refactor`, `perf`, `chore`, `ci` `fix`
+**Examples**:
+``` 
+feat(vault): add master password rotation
+fix(cli): handle empty vault gracefully
+docs: update installation instructions
+test(crypto): add ChaCha20 test vectors
+```
+## 🧪 Testing
 ### Running Tests
-
-```bash
+``` bash
 # Run all tests
 cargo test
 
-# Run tests with output
-cargo test -- --nocapture
-
-# Run specific test module
-cargo test core::scanner
-
-# Run with nextest (recommended)
+# Run with nextest (faster, better output)
 cargo nextest run
 
+# Run specific test suite
+cargo test --package chamber-vault
+
+# Run integration tests
+cargo test --test integration_tests
+
 # Run with coverage
-cargo tarpaulin --out Html
+cargo tarpaulin --out html
 ```
-
-### Development Tools
-
-We recommend installing these tools for a better development experience:
-
-```bash
-# Install development tools
-cargo install cargo-watch    # Auto-rebuild on file changes
-cargo install cargo-nextest  # Better test runner
-cargo install cargo-tarpaulin # Code coverage
-cargo install cargo-audit    # Security audit
-
-# Watch for changes and run tests
-cargo watch -x test
-
-# Watch for changes and run the app
-cargo watch -x run
-```
-
-## Style Guidelines
-
-### Git Commit Messages
-
-- Use the present tense ("Add feature" not "Added feature")
-- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
-- Limit the first line to 72 characters or less
-- Reference issues and pull requests liberally after the first line
-- Use conventional commits format when possible:
-  - `feat:` for new features
-  - `fix:` for bug fixes
-  - `docs:` for documentation changes
-  - `style:` for formatting changes
-  - `refactor:` for code refactoring
-  - `test:` for adding tests
-  - `chore:` for maintenance tasks
-
-Examples:
-
-```text
-
-feat: add support for HEIC image format
-
-- Add HEIC detection in media_types module
-- Update scanner to handle HEIC files
-- Add tests for HEIC file processing
-
-Closes #123
-```
-
-### Rust Style Guide
-
-We follow the standard Rust style guidelines:
-
-- Run `cargo fmt` before committing
-- Ensure `cargo clippy -- -D warnings` passes
-- Use descriptive variable names
-- Add documentation comments for public APIs
-- Keep functions focused and small
-- Use `Result<T, E>` for error handling
-- Prefer `&str` over `String` for function parameters when possible
-
-Example:
-
-```rust
-/// Organizes files based on the specified organization mode.
-///
-/// # Arguments
-///
-/// * `files` - Vector of files to organize
-/// * `settings` - Configuration settings for organization
-///
-/// # Returns
-///
-/// Returns `Ok(OrganizationResult)` on success, or an error if organization fails.
-///
-/// # Example
-///
-/// ```
-/// let result = organizer.organize_files(files, &settings).await?;
-/// println!("Organized {} files", result.files_organized);
-/// ```
-pub async fn organize_files(
-    &self,
-    files: Vec<MediaFile>,
-    settings: &Settings,
-) -> Result<OrganizationResult> {
-    // Implementation
-}
-```
-
-### Documentation Style Guide
-
-- Use triple-slash comments (`///`) for public items
-- Include examples in documentation when helpful
-- Document panic conditions with `# Panics`
-- Document error conditions with `# Errors`
-- Keep line length under 100 characters in documentation
-
-## Testing Guidelines
+### Test Categories
+1. **Unit Tests**: Test individual functions and modules
+2. **Integration Tests**: Test component interactions
+3. **Crypto Tests**: Verify cryptographic implementations
+4. **CLI Tests**: Test command-line interface behavior
+5. **Database Tests**: Test SQLite operations and migrations
 
 ### Writing Tests
+- Add unit tests in the same file as the code (using `#[cfg(test)]`)
+- Add integration tests in the `tests/` directory
+- Use descriptive test names: `test_vault_creation_with_strong_password`
+- Test both success and error cases
+- For crypto code, include test vectors when possible
 
-- Write tests for all new functionality
-- Place unit tests in the same file as the code they test
-- Place integration tests in the `tests/` directory
-- Use descriptive test names that explain what is being tested
-- Use test fixtures and helper functions to reduce duplication
+### Benchmarks
+``` bash
+# Run benchmarks
+cargo bench
 
-Example test structure:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    // Helper function for test setup
-    async fn setup_test_environment() -> Result<(TempDir, Scanner)> {
-        let temp_dir = TempDir::new()?;
-        let scanner = Scanner::new();
-        Ok((temp_dir, scanner))
-    }
-
-    #[tokio::test]
-    async fn test_scanner_finds_jpeg_files() -> Result<()> {
-        let (temp_dir, scanner) = setup_test_environment().await?;
-        
-        // Create test file
-        let test_file = temp_dir.path().join("test.jpg");
-        fs::write(&test_file, b"fake jpeg data").await?;
-        
-        // Run scanner
-        let files = scanner.scan_directory(temp_dir.path(), false).await?;
-        
-        // Assertions
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].extension, "jpg");
-        
-        Ok(())
-    }
-}
+# Profile with flamegraph
+cargo flamegraph --bench crypto_bench
 ```
+## 📚 Documentation
+### Documentation Standards
+- **Public APIs**: Must have rustdoc comments
+- **Examples**: Include usage examples in doc comments
+- **README**: Keep README.md up to date
+- **Architecture**: Document design decisions
 
-### Test Categories
+### Building Documentation
+``` bash
+# Build documentation
+cargo doc --no-deps --all-features --open
 
-1. **Unit Tests**: Test individual functions and methods
-2. **Integration Tests**: Test complete workflows
-3. **UI Tests**: Test terminal UI components (when applicable)
-4. **Performance Tests**: Benchmark critical paths
-
-## Project Structure
-
-```text
-visualvault/
-├── src/
-│   ├── main.rs              # Application entry point
-│   ├── app.rs               # Main application state and logic
-│   ├── config/              # Configuration management
-│   │   └── settings.rs      # Settings structure and defaults
-│   ├── core/                # Core functionality
-│   │   ├── scanner.rs       # File scanning logic
-│   │   ├── organizer.rs     # File organization logic
-│   │   ├── duplicate.rs     # Duplicate detection
-│   │   └── file_cache.rs    # File metadata caching
-│   ├── models/              # Data structures
-│   │   ├── file_type.rs     # File type definitions
-│   │   ├── media_file.rs    # Media file representation
-│   │   └── filters.rs       # Filter definitions
-│   ├── ui/                  # Terminal UI components
-│   │   ├── dashboard.rs     # Dashboard view
-│   │   ├── settings.rs      # Settings view
-│   │   └── help.rs          # Help overlay
-│   └── utils/               # Utility functions
-│       ├── datetime.rs      # Date/time helpers
-│       ├── format.rs        # Formatting utilities
-│       └── media_types.rs   # Media type detection
-├── tests/                   # Integration tests
-├── Cargo.toml              # Project dependencies
-└── README.md               # Project documentation
+# Check for broken links
+cargo doc --no-deps --all-features 2>&1 | grep warning
 ```
+## 🔐 Security Considerations
+Chamber is a security-critical application. Please keep these guidelines in mind:
+### Security Review Process
+1. **Crypto Changes**: All cryptographic code changes require thorough review
+2. **Memory Safety**: Be mindful of sensitive data in memory
+3. **Dependencies**: New dependencies require security review
+4. **Input Validation**: Validate all user input rigorously
 
-## Community
+### Security Testing
+``` bash
+# Audit dependencies
+cargo audit
 
-- **GitHub Issues**: For bug reports and feature requests
-- **GitHub Discussions**: For questions and general discussion
-- **Pull Requests**: For code contributions
+# Check for security advisories
+cargo deny check advisories
 
+# Run security-focused tests
+cargo test --features security-tests
+```
+### Reporting Security Issues
+🚨 **Do not report security vulnerabilities through public GitHub issues.**
+Instead, please email security issues to: [security@chamber-project.org]()
+Include:
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
+
+## 🔄 Pull Request Process
+### Before Submitting
+1. **Create an issue** (for non-trivial changes)
+2. **Fork the repository**
+3. **Create a feature branch**: `git checkout -b feature/my-feature`
+4. **Make your changes**
+5. **Add tests** for new functionality
+6. **Update documentation** if needed
+
+### Pre-submission Checklist
+- Code compiles without warnings: `cargo build`
+- All tests pass: `cargo test`
+- Code is formatted: `cargo fmt`
+- No clippy warnings: `cargo clippy --all-targets --all-features -- -D warnings`
+- Documentation builds: `cargo doc --no-deps`
+- Security audit passes: `cargo audit`
+- Commit messages follow conventions
+
+### Submission Process
+1. **Push your branch**: `git push origin feature/my-feature`
+2. **Create a Pull Request** through GitHub
+3. **Fill out the PR template** completely
+4. **Wait for review** and address feedback
+5. **Merge** (will be done by maintainers)
+
+### PR Template
+``` markdown
+## Description
+Brief description of changes
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+- [ ] Tests added/updated
+- [ ] All tests pass
+- [ ] Manual testing completed
+
+## Security
+- [ ] No new security vulnerabilities introduced
+- [ ] Security-sensitive changes reviewed
+
+## Documentation
+- [ ] Documentation updated
+- [ ] Examples added/updated
+```
+## 🎯 Review Process
+### What We Look For
+- **Correctness**: Does the code work as intended?
+- **Security**: Are there any security implications?
+- **Performance**: Is the performance impact acceptable?
+- **Maintainability**: Is the code easy to understand and maintain?
+- **Testing**: Are there adequate tests?
+- **Documentation**: Is the code properly documented?
+
+### Review Timeline
+- **Initial Response**: Within 48 hours
+- **Full Review**: Within 1 week for most PRs
+- **Security Reviews**: May take longer due to additional scrutiny
+
+## 📈 Development Workflow
+### Recommended Workflow
+``` bash
+# Stay up to date
+git checkout main
+git pull upstream main
+
+# Create feature branch
+git checkout -b feature/my-awesome-feature
+
+# Make changes and test frequently
+cargo watch -x "test --all-features"
+
+# Before committing
+cargo fmt
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test
+
+# Commit with conventional format
+git commit -m "feat(vault): add password strength validation"
+
+# Push and create PR
+git push origin feature/my-awesome-feature
+```
+### Continuous Integration
+Our CI pipeline runs:
+- **Tests**: All test suites across multiple platforms
+- **Linting**: Format and clippy checks
+- **Security**: Dependency auditing
+- **Coverage**: Code coverage analysis
+- **Documentation**: Doc generation and link checking
+
+## 🌍 Community
 ### Getting Help
+- **GitHub Discussions**: For questions and general discussion
+- **Issues**: For bug reports and feature requests
+- **Discord/Matrix**: Real-time chat (links in README)
 
-If you need help, you can:
+### Code of Conduct
+We are committed to providing a welcoming and inclusive environment. Please read our [Code of Conduct](CODE_OF_CONDUCT.md).
+### Recognition
+Contributors are recognized in:
+- : Active contributors list **README.md**
+- **Releases**: Changelog mentions
+- **All Contributors**: Comprehensive contributor recognition
 
-1. Check the [README](README.md) for usage information
-2. Look through existing [issues](https://github.com/yourusername/visualvault/issues)
-3. Create a new issue with the `question` label
-4. Start a discussion in the [Discussions](https://github.com/yourusername/visualvault/discussions) section
+## 📞 Getting in Touch
+- **Maintainers**: [@mikeleppane](https://github.com/mikeleppane)
+- **General Questions**: GitHub Discussions
+- **Security Issues**: security@chamber-project.org
 
-## Recognition
-
-Contributors who submit accepted pull requests will be added to the project's AUTHORS file and recognized
-in the release notes.
-
-Thank you for contributing to VisualVault! 🚀  
+## 📝 License
+By contributing to Chamber, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+Thank you for contributing to Chamber! Your help makes this project better for everyone. 🙏

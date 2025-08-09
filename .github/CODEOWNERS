@@ -1,65 +1,82 @@
-# VisualVault CODEOWNERS
-# This file defines the code owners for different parts of the repository.
-# Code owners are automatically requested for review when someone opens a pull request
-# that modifies code that they own.
+# This file defines who is responsible for reviewing changes to specific parts of the codebase.
+# When a pull request is opened that changes files covered by this file, the specified reviewers
+# will automatically be requested for review.
+#
+# Learn more about CODEOWNERS:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Default owners for everything in the repo
-# These owners will be requested for review when someone opens a pull request
-# unless a later match takes precedence
-* @mikko
-
-# Core functionality
-/src/core/ @mikko
-/src/core/scanner.rs @mikko
-/src/core/organizer.rs @mikko
-/src/core/duplicate.rs @mikko
-/src/core/file_cache.rs @mikko
-
-# Configuration and settings
-/src/config/ @mikko
-/src/config/settings.rs @mikko
-
-# UI components
-/src/ui/ @mikko
-/src/ui/dashboard.rs @mikko
-/src/ui/settings.rs @mikko
-/src/ui/help.rs @mikko
-
-# Models and data structures
-/src/models/ @mikko
-
-# Utilities
-/src/utils/ @mikko
-
-# Application entry and main logic
-/src/main.rs @mikko
-/src/app.rs @mikko
-/src/app/ @mikko
-
-# Storage providers
-/src/storage/ @mikko
-/src/storage/google_drive.rs @mikko
-
-# Tests
-/tests/ @mikko
-/src/**/tests.rs @mikko
-/src/**/*_tests.rs @mikko
+# Global owners - these users will be requested for review on all changes
+* @mikeleppane
 
 # Documentation
-*.md @mikko
-/docs/ @mikko
-README.md @mikko
-CONTRIBUTING.md @mikko
+*.md @mikeleppane
+docs/ @mikeleppane
+CONTRIBUTING.md @mikeleppane
+CODE_OF_CONDUCT.md @mikeleppane
+README.md @mikeleppane
 
-# CI/CD and GitHub configuration
-/.github/ @mikko
-/.github/workflows/ @mikko
-/.github/ISSUE_TEMPLATE/ @mikko
-/.github/pull_request_template.md @mikko
+# License and legal
+LICENSE @mikeleppane
+CODEOWNERS @mikeleppane
 
-# Build and configuration files
-Cargo.toml @mikko
-Cargo.lock @mikko
-rust-toolchain.toml @mikko
-.rustfmt.toml @mikko
-.clippy.toml @mikko
+# Core configuration files
+Cargo.toml @mikeleppane
+Cargo.lock @mikeleppane
+.gitignore @mikeleppane
+.rustfmt.toml @mikeleppane
+.clippy.toml @mikeleppane
+
+# CI/CD configuration
+.github/ @mikeleppane
+.codecov.yml @mikeleppane
+justfile @mikeleppane
+
+# Core vault logic and cryptography - requires security review
+crates/vault/ @mikeleppane
+crates/vault/src/crypto/ @mikeleppane
+crates/vault/src/storage/ @mikeleppane
+
+# CLI interface
+crates/cli/ @mikeleppane
+
+# Terminal UI
+crates/tui/ @mikeleppane
+
+# Import/Export functionality - security sensitive due to data handling
+crates/import-export/ @mikeleppane
+
+# Main application binary
+src/ @mikeleppane
+
+# Tests - ensure test coverage and quality
+tests/ @mikeleppane
+**/tests/ @mikeleppane
+**/*test*.rs @mikeleppane
+
+# Benchmarks and performance
+benches/ @mikeleppane
+**/benches/ @mikeleppane
+
+# Security-related files - require extra scrutiny
+**/*crypto*.rs @mikeleppane
+**/*security*.rs @mikeleppane
+**/*auth*.rs @mikeleppane
+**/*encryption*.rs @mikeleppane
+**/*argon2*.rs @mikeleppane
+**/*chacha*.rs @mikeleppane
+
+# Database schema and migrations - data integrity critical
+**/migrations/ @mikeleppane
+**/schema.rs @mikeleppane
+**/*migration*.rs @mikeleppane
+**/*database*.rs @mikeleppane
+**/*storage*.rs @mikeleppane
+
+# Configuration and setup files
+**/*.toml @mikeleppane
+**/*.yml @mikeleppane
+**/*.yaml @mikeleppane
+**/*.json @mikeleppane
+
+# Example files and demos
+examples/ @mikeleppane
