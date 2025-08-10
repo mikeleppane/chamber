@@ -31,6 +31,11 @@ Chamber is a modern secret management solution designed for developers and secur
   <span>Chamber's Login Page</span>
 </p>
 
+<p align="center">
+  <img src="images/items.png" alt="VisualVault's Settings Page" />
+  <span>Chamber's Main Page with Items</span>
+</p>
+
 ### 🎥 Introduction Videos
 [![Watch the video](https://img.youtube.com/vi/iuYMKGDuZW8/maxresdefault.jpg)](https://youtu.be/iuYMKGDuZW8)
 
