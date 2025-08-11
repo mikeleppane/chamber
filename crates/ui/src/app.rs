@@ -989,4 +989,57 @@ impl App {
             _ => false,
         }
     }
+
+    /// Pastes content from the clipboard to the add item value field.
+    ///
+    /// This function retrieves text content from the system clipboard and appends it to
+    /// the current `add_value` field. If the clipboard contains text, it will be added
+    /// to the existing value. If accessing the clipboard fails, an appropriate status
+    /// message is displayed.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the paste operation completes successfully or if there's no text in clipboard.
+    /// * `Err(anyhow::Error)` - If accessing the clipboard fails.
+    ///
+    /// # Errors
+    ///
+    /// - Returns an error if accessing the clipboard fails.
+    /// - Sets a warning status if the clipboard is empty or contains no text.
+    ///
+    /// # Behavior
+    ///
+    /// - Retrieves text from the system clipboard using `arboard::Clipboard`.
+    /// - Appends the clipboard content to the current `add_value` field.
+    /// - Sets a success status message indicating the paste operation completed.
+    /// - If clipboard is empty or contains no text, shows a warning message.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if let Err(e) = app.paste_to_add_value() {
+    ///     eprintln!("Error pasting from clipboard: {}", e);
+    /// }
+    /// ```
+    pub fn paste_to_add_value(&mut self) -> Result<()> {
+        let mut clipboard = arboard::Clipboard::new().map_err(|e| anyhow!("Failed to access clipboard: {}", e))?;
+
+        match clipboard.get_text() {
+            Ok(text) => {
+                if text.is_empty() {
+                    self.set_status("Clipboard is empty".to_string(), StatusType::Warning);
+                } else {
+                    self.add_value.push_str(&text);
+                    self.set_status(
+                        format!("Pasted {} characters from clipboard", text.len()),
+                        StatusType::Success,
+                    );
+                }
+            }
+            Err(_) => {
+                self.set_status("No text content in clipboard".to_string(), StatusType::Warning);
+            }
+        }
+        Ok(())
+    }
 }

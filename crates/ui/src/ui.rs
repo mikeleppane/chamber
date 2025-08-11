@@ -144,6 +144,106 @@ pub fn run_app(app: &mut App) -> Result<()> {
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::cognitive_complexity)]
 fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
+    // Handle global Ctrl combinations FIRST, before screen-specific logic
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        match key.code {
+            KeyCode::Char('v' | 'V') => {
+                // Handle paste based on current screen and focus
+                match app.screen {
+                    Screen::Unlock => {
+                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                            if let Ok(text) = clipboard.get_text() {
+                                match app.unlock_focus {
+                                    UnlockField::Master => app.master_input.push_str(&text),
+                                    UnlockField::Confirm => {
+                                        if app.master_mode_is_setup {
+                                            app.master_confirm_input.push_str(&text);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        return Ok(false); // Prevent further processing
+                    }
+                    Screen::AddItem => {
+                        match app.add_focus {
+                            AddItemField::Value => {
+                                if let Err(e) = app.paste_to_add_value() {
+                                    app.set_status(format!("Paste failed: {e}"), StatusType::Error);
+                                }
+                            }
+                            AddItemField::Name => {
+                                if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                    if let Ok(text) = clipboard.get_text() {
+                                        app.add_name.push_str(&text);
+                                        app.set_status(
+                                            format!("Pasted {} characters to name field", text.len()),
+                                            StatusType::Success,
+                                        );
+                                    }
+                                }
+                            }
+                            AddItemField::Kind => {}
+                        }
+                        return Ok(false); // Prevent further processing
+                    }
+                    Screen::EditItem => {
+                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                            if let Ok(text) = clipboard.get_text() {
+                                app.edit_value.push_str(&text);
+                                app.set_status(
+                                    format!("Pasted {} characters to edit field", text.len()),
+                                    StatusType::Success,
+                                );
+                            }
+                        }
+                        return Ok(false); // Prevent further processing
+                    }
+                    Screen::ChangeMaster => {
+                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                            if let Ok(text) = clipboard.get_text() {
+                                match app.ck_focus {
+                                    ChangeKeyField::Current => app.ck_current.push_str(&text),
+                                    ChangeKeyField::New => app.ck_new.push_str(&text),
+                                    ChangeKeyField::Confirm => app.ck_confirm.push_str(&text),
+                                }
+                            }
+                        }
+                        return Ok(false); // Prevent further processing
+                    }
+                    Screen::ImportExport => {
+                        if matches!(app.ie_focus, ImportExportField::Path) {
+                            if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                if let Ok(text) = clipboard.get_text() {
+                                    app.ie_path.push_str(&text);
+                                    app.set_status(
+                                        format!("Pasted {} characters to path field", text.len()),
+                                        StatusType::Success,
+                                    );
+                                }
+                            }
+                        }
+                        return Ok(false); // Prevent further processing
+                    }
+                    _ => {}
+                }
+                return Ok(false); // Always prevent further processing for Ctrl+V
+            }
+            KeyCode::Char('c' | 'C') => {
+                // Handle copy operations
+                if matches!(app.screen, Screen::Main) {
+                    app.copy_selected()?;
+                }
+                return Ok(false); // Prevent further processing
+            }
+            _ => {
+                // For other Ctrl combinations, don't process them as regular characters
+                return Ok(false);
+            }
+        }
+    }
+
+    // Now handle screen-specific keys (after Ctrl combinations are processed)
     match app.screen {
         Screen::Unlock => match key.code {
             KeyCode::Esc => return Ok(true),
@@ -169,28 +269,32 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 }
             },
             KeyCode::Char(c) => {
-                if !key.modifiers.contains(KeyModifiers::CONTROL) {
-                    match app.unlock_focus {
-                        UnlockField::Master => app.master_input.push(c),
-                        UnlockField::Confirm => {
-                            if app.master_mode_is_setup {
-                                app.master_confirm_input.push(c);
-                            }
+                // Only process regular characters (Ctrl combinations handled above)
+                match app.unlock_focus {
+                    UnlockField::Master => app.master_input.push(c),
+                    UnlockField::Confirm => {
+                        if app.master_mode_is_setup {
+                            app.master_confirm_input.push(c);
                         }
                     }
                 }
             }
             _ => {}
         },
+
         Screen::Main => match key.code {
             KeyCode::Char('q') => return Ok(true),
             KeyCode::Char('a') => {
                 app.screen = Screen::AddItem;
             }
             KeyCode::Char('c') => {
-                app.copy_selected()?;
+                // Only handle 'c' for copy if Ctrl is NOT pressed (Ctrl+C handled above)
+                if !key.modifiers.contains(KeyModifiers::CONTROL) {
+                    app.copy_selected()?;
+                }
             }
             KeyCode::Char('v') => {
+                // Only handle 'v' for view if Ctrl is NOT pressed (Ctrl+V handled above)
                 app.view_selected();
             }
             KeyCode::Char('e') => {
@@ -213,7 +317,6 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
             KeyCode::Char('i') => {
                 app.open_import_export(ImportExportMode::Import);
             }
-
             KeyCode::Char('d') => {
                 app.delete_selected()?;
             }
@@ -225,12 +328,10 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 if app.selected < app.filtered_items.len().saturating_sub(1) {
                     app.selected += 1;
                 } else {
-                    // Wrap to top
                     app.selected = 0;
                 }
 
-                // Update scroll offset to keep selected item visible
-                let viewport_height = 10; // You might want to calculate this based on terminal height
+                let viewport_height = 10;
                 if app.selected >= app.scroll_offset + viewport_height {
                     app.scroll_offset = app.selected.saturating_sub(viewport_height - 1);
                 } else if app.selected == 0 {
@@ -245,7 +346,6 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 if app.selected > 0 {
                     app.selected -= 1;
                 } else {
-                    // Wrap to bottom
                     app.selected = app.filtered_items.len().saturating_sub(1);
                 }
                 if app.selected < app.scroll_offset {
@@ -257,87 +357,184 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
             }
             _ => {}
         },
-        Screen::AddItem => {
-            match key.code {
-                KeyCode::Esc => {
-                    app.screen = Screen::Main;
-                }
-                KeyCode::Enter => {
-                    app.add_item()?;
-                }
-                KeyCode::Tab => {
-                    app.add_focus = match app.add_focus {
-                        AddItemField::Name => AddItemField::Kind,
-                        AddItemField::Kind => AddItemField::Value,
-                        AddItemField::Value => AddItemField::Name,
+
+        Screen::AddItem => match key.code {
+            KeyCode::Esc => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Enter => {
+                app.add_item()?;
+            }
+            KeyCode::Tab => {
+                app.add_focus = match app.add_focus {
+                    AddItemField::Name => AddItemField::Kind,
+                    AddItemField::Kind => AddItemField::Value,
+                    AddItemField::Value => AddItemField::Name,
+                };
+            }
+            KeyCode::Left | KeyCode::Right if matches!(app.add_focus, AddItemField::Kind) => {
+                let total_kinds = 7;
+                if key.code == KeyCode::Right {
+                    app.add_kind_idx = (app.add_kind_idx + 1) % total_kinds;
+                } else {
+                    app.add_kind_idx = if app.add_kind_idx == 0 {
+                        total_kinds - 1
+                    } else {
+                        app.add_kind_idx - 1
                     };
                 }
-                KeyCode::Left | KeyCode::Right if matches!(app.add_focus, AddItemField::Kind) => {
-                    let total_kinds = 7; // Password, EnvVar, Note, ApiKey, SshKey, Certificate, Database
-                    if key.code == KeyCode::Right {
-                        app.add_kind_idx = (app.add_kind_idx + 1) % total_kinds;
-                    } else {
-                        app.add_kind_idx = if app.add_kind_idx == 0 {
-                            total_kinds - 1
-                        } else {
-                            app.add_kind_idx - 1
-                        };
-                    }
-                }
-                KeyCode::Up if matches!(app.add_focus, AddItemField::Value) => {
-                    // Scroll up in value field
-                    app.add_value_scroll = app.add_value_scroll.saturating_sub(1);
-                }
-                KeyCode::Down if matches!(app.add_focus, AddItemField::Value) => {
-                    // Scroll down in value field
-                    let lines_count = app.add_value.lines().count();
-                    if lines_count > 5 {
-                        // Only scroll if content is longer than visible area
-                        app.add_value_scroll = (app.add_value_scroll + 1).min(lines_count.saturating_sub(5));
-                    }
-                }
-                KeyCode::Char('v')
-                    if key.modifiers.contains(KeyModifiers::CONTROL)
-                        && matches!(app.add_focus, AddItemField::Value) =>
-                {
-                    // Paste from clipboard
-                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                        if let Ok(text) = clipboard.get_text() {
-                            app.add_value = text;
-                            app.add_value_scroll = 0; // Reset scroll after paste
-                        }
-                    }
-                }
-                KeyCode::Char('g') if matches!(app.add_focus, AddItemField::Value) => {
-                    // Open password generator from add item screen
-                    app.open_password_generator();
-                }
-                KeyCode::Backspace => match app.add_focus {
-                    AddItemField::Name => {
-                        app.add_name.pop();
-                    }
-                    AddItemField::Value => {
-                        app.add_value.pop();
-                        // Adjust scroll if content becomes shorter
-                        let lines_count = app.add_value.lines().count();
-                        if app.add_value_scroll >= lines_count && lines_count > 0 {
-                            app.add_value_scroll = lines_count.saturating_sub(1);
-                        }
-                    }
-                    AddItemField::Kind => {}
-                },
-                KeyCode::Char(c) => {
-                    if !key.modifiers.contains(KeyModifiers::CONTROL) {
-                        match app.add_focus {
-                            AddItemField::Name => app.add_name.push(c),
-                            AddItemField::Value => app.add_value.push(c),
-                            AddItemField::Kind => {}
-                        }
-                    }
-                }
-                _ => {}
             }
-        }
+            KeyCode::Up if matches!(app.add_focus, AddItemField::Value) => {
+                app.add_value_scroll = app.add_value_scroll.saturating_sub(1);
+            }
+            KeyCode::Down if matches!(app.add_focus, AddItemField::Value) => {
+                let lines_count = app.add_value.lines().count();
+                if lines_count > 5 {
+                    app.add_value_scroll = (app.add_value_scroll + 1).min(lines_count.saturating_sub(5));
+                }
+            }
+            KeyCode::Backspace => match app.add_focus {
+                AddItemField::Name => {
+                    app.add_name.pop();
+                }
+                AddItemField::Value => {
+                    app.add_value.pop();
+                    let lines_count = app.add_value.lines().count();
+                    if app.add_value_scroll >= lines_count && lines_count > 0 {
+                        app.add_value_scroll = lines_count.saturating_sub(1);
+                    }
+                }
+                AddItemField::Kind => {}
+            },
+            KeyCode::Char(c) => {
+                // All regular character input (Ctrl combinations handled above)
+                match app.add_focus {
+                    AddItemField::Name => app.add_name.push(c),
+                    AddItemField::Value => app.add_value.push(c),
+                    AddItemField::Kind => {}
+                }
+            }
+            _ => {}
+        },
+
+        Screen::ViewItem => match key.code {
+            KeyCode::Esc => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Char('t') => {
+                app.toggle_value_visibility();
+            }
+            KeyCode::Char('c') => {
+                if let Some(item) = &app.view_item {
+                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                        let _ = clipboard.set_text(&item.value);
+                        app.set_status(format!("Copied '{}' to clipboard", item.name), StatusType::Success);
+                    }
+                }
+            }
+            _ => {}
+        },
+
+        Screen::EditItem => match key.code {
+            KeyCode::Esc => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Enter => {
+                app.save_edit()?;
+            }
+            KeyCode::Backspace => {
+                app.edit_value.pop();
+            }
+            KeyCode::Char(c) => {
+                // All regular character input (Ctrl combinations handled above)
+                app.edit_value.push(c);
+            }
+            _ => {}
+        },
+
+        Screen::ChangeMaster => match key.code {
+            KeyCode::Esc => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Enter => {
+                app.change_master()?;
+            }
+            KeyCode::Tab => {
+                app.ck_focus = match app.ck_focus {
+                    ChangeKeyField::Current => ChangeKeyField::New,
+                    ChangeKeyField::New => ChangeKeyField::Confirm,
+                    ChangeKeyField::Confirm => ChangeKeyField::Current,
+                };
+            }
+            KeyCode::Backspace => match app.ck_focus {
+                ChangeKeyField::Current => {
+                    app.ck_current.pop();
+                }
+                ChangeKeyField::New => {
+                    app.ck_new.pop();
+                }
+                ChangeKeyField::Confirm => {
+                    app.ck_confirm.pop();
+                }
+            },
+            KeyCode::Char(c) => {
+                // All regular character input (Ctrl combinations handled above)
+                match app.ck_focus {
+                    ChangeKeyField::Current => app.ck_current.push(c),
+                    ChangeKeyField::New => app.ck_new.push(c),
+                    ChangeKeyField::Confirm => app.ck_confirm.push(c),
+                }
+            }
+            _ => {}
+        },
+
+        Screen::GeneratePassword => match key.code {
+            KeyCode::Esc => {
+                app.screen = Screen::Main;
+            }
+            KeyCode::Tab => {
+                app.gen_focus = match app.gen_focus {
+                    PasswordGenField::Length => PasswordGenField::Options,
+                    PasswordGenField::Options => PasswordGenField::Generate,
+                    PasswordGenField::Generate => PasswordGenField::Length,
+                };
+            }
+            KeyCode::Char('g') | KeyCode::Enter => {
+                app.generate_password();
+            }
+            KeyCode::Char('c') => {
+                if let Err(e) = app.copy_generated_password() {
+                    app.set_status(format!("Copy failed: {e}"), StatusType::Error);
+                }
+            }
+            KeyCode::Char('u') => {
+                app.use_generated_password();
+            }
+            KeyCode::Char(c) if matches!(app.gen_focus, PasswordGenField::Length) => {
+                if c.is_ascii_digit() {
+                    app.gen_length_str.push(c);
+                }
+            }
+            KeyCode::Backspace if matches!(app.gen_focus, PasswordGenField::Length) => {
+                app.gen_length_str.pop();
+            }
+            KeyCode::Char('1') if matches!(app.gen_focus, PasswordGenField::Options) => {
+                app.gen_config.include_uppercase = !app.gen_config.include_uppercase;
+            }
+            KeyCode::Char('2') if matches!(app.gen_focus, PasswordGenField::Options) => {
+                app.gen_config.include_lowercase = !app.gen_config.include_lowercase;
+            }
+            KeyCode::Char('3') if matches!(app.gen_focus, PasswordGenField::Options) => {
+                app.gen_config.include_digits = !app.gen_config.include_digits;
+            }
+            KeyCode::Char('4') if matches!(app.gen_focus, PasswordGenField::Options) => {
+                app.gen_config.include_symbols = !app.gen_config.include_symbols;
+            }
+            KeyCode::Char('5') if matches!(app.gen_focus, PasswordGenField::Options) => {
+                app.gen_config.exclude_ambiguous = !app.gen_config.exclude_ambiguous;
+            }
+            _ => {}
+        },
 
         Screen::ImportExport => match key.code {
             KeyCode::Esc => {
@@ -370,138 +567,13 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 app.ie_path.pop();
             }
             KeyCode::Char(c) if matches!(app.ie_focus, ImportExportField::Path) => {
-                if !key.modifiers.contains(KeyModifiers::CONTROL) {
-                    app.ie_path.push(c);
-                }
-            }
-            _ => {}
-        },
-
-        Screen::ChangeMaster => match key.code {
-            KeyCode::Esc => {
-                app.screen = Screen::Main;
-            }
-            KeyCode::Enter => {
-                app.change_master()?;
-            }
-            KeyCode::Tab => {
-                app.ck_focus = match app.ck_focus {
-                    ChangeKeyField::Current => ChangeKeyField::New,
-                    ChangeKeyField::New => ChangeKeyField::Confirm,
-                    ChangeKeyField::Confirm => ChangeKeyField::Current,
-                };
-            }
-            KeyCode::Backspace => match app.ck_focus {
-                ChangeKeyField::Current => {
-                    app.ck_current.pop();
-                }
-                ChangeKeyField::New => {
-                    app.ck_new.pop();
-                }
-                ChangeKeyField::Confirm => {
-                    app.ck_confirm.pop();
-                }
-            },
-            KeyCode::Char(c) => {
-                if !key.modifiers.contains(KeyModifiers::CONTROL) {
-                    match app.ck_focus {
-                        ChangeKeyField::Current => app.ck_current.push(c),
-                        ChangeKeyField::New => app.ck_new.push(c),
-                        ChangeKeyField::Confirm => app.ck_confirm.push(c),
-                    }
-                }
-            }
-            _ => {}
-        },
-        Screen::GeneratePassword => {
-            match key.code {
-                KeyCode::Esc => {
-                    app.screen = Screen::Main;
-                }
-                KeyCode::Tab => {
-                    app.gen_focus = match app.gen_focus {
-                        PasswordGenField::Length => PasswordGenField::Options,
-                        PasswordGenField::Options => PasswordGenField::Generate,
-                        PasswordGenField::Generate => PasswordGenField::Length,
-                    };
-                }
-                KeyCode::Enter => {
-                    if app.gen_focus == PasswordGenField::Generate {
-                        app.generate_password();
-                    }
-                }
-                KeyCode::Char('g') => {
-                    app.generate_password();
-                }
-                KeyCode::Char('c') => {
-                    app.copy_generated_password()?;
-                }
-                KeyCode::Char('u') => {
-                    app.use_generated_password();
-                }
-                KeyCode::Char(' ') if matches!(app.gen_focus, PasswordGenField::Options) => {
-                    // Toggle options with spacebar
-                    app.gen_config.include_uppercase = !app.gen_config.include_uppercase;
-                }
-                KeyCode::Char('1') if matches!(app.gen_focus, PasswordGenField::Options) => {
-                    app.gen_config.include_uppercase = !app.gen_config.include_uppercase;
-                }
-                KeyCode::Char('2') if matches!(app.gen_focus, PasswordGenField::Options) => {
-                    app.gen_config.include_lowercase = !app.gen_config.include_lowercase;
-                }
-                KeyCode::Char('3') if matches!(app.gen_focus, PasswordGenField::Options) => {
-                    app.gen_config.include_digits = !app.gen_config.include_digits;
-                }
-                KeyCode::Char('4') if matches!(app.gen_focus, PasswordGenField::Options) => {
-                    app.gen_config.include_symbols = !app.gen_config.include_symbols;
-                }
-                KeyCode::Char('5') if matches!(app.gen_focus, PasswordGenField::Options) => {
-                    app.gen_config.exclude_ambiguous = !app.gen_config.exclude_ambiguous;
-                }
-                KeyCode::Backspace if matches!(app.gen_focus, PasswordGenField::Length) => {
-                    app.gen_length_str.pop();
-                }
-                KeyCode::Char(c) if matches!(app.gen_focus, PasswordGenField::Length) => {
-                    if c.is_ascii_digit() {
-                        app.gen_length_str.push(c);
-                    }
-                }
-                _ => {}
-            }
-        }
-        Screen::ViewItem => match key.code {
-            KeyCode::Esc => {
-                app.view_item = None;
-                app.screen = Screen::Main;
-            }
-            KeyCode::Char(' ') | KeyCode::Enter => {
-                app.toggle_value_visibility();
-            }
-            KeyCode::Char('c') => {
-                app.copy_selected()?;
-            }
-            _ => {}
-        },
-        Screen::EditItem => match key.code {
-            KeyCode::Esc => {
-                app.edit_item = None;
-                app.edit_value.clear();
-                app.screen = Screen::Main;
-            }
-            KeyCode::Enter => {
-                app.save_edit()?;
-            }
-            KeyCode::Backspace => {
-                app.edit_value.pop();
-            }
-            KeyCode::Char(c) => {
-                if !key.modifiers.contains(KeyModifiers::CONTROL) {
-                    app.edit_value.push(c);
-                }
+                // All regular character input (Ctrl combinations handled above)
+                app.ie_path.push(c);
             }
             _ => {}
         },
     }
+
     Ok(false)
 }
 
@@ -909,6 +981,10 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             Span::raw("Change master key"),
         ]),
         Line::from(vec![
+            Span::styled("Ctrl+v ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+            Span::raw("Paste from clipboard (in value field)"),
+        ]),
+        Line::from(vec![
             Span::styled("q ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
             Span::raw("Quit"),
         ]),
@@ -1063,6 +1139,7 @@ fn get_key_hints_for_screen(app: &App) -> Vec<Span<'static>> {
     spans
 }
 
+#[allow(clippy::too_many_lines)]
 fn draw_add_item(f: &mut Frame, app: &App) {
     // Create a centered modal area
     let modal_area = centered_rect(70, 80, f.area());
@@ -1086,7 +1163,7 @@ fn draw_add_item(f: &mut Frame, app: &App) {
             Constraint::Length(3), // Name input
             Constraint::Length(3), // Kind selection
             Constraint::Min(5),    // Value input (expanded for multi-line)
-            Constraint::Length(3), // Instructions
+            Constraint::Length(5), // Instructions
         ])
         .split(inner);
 
@@ -1153,7 +1230,47 @@ fn draw_add_item(f: &mut Frame, app: &App) {
     f.render_widget(value_input, chunks[2]);
 
     // Instructions
-    let instructions = get_instructions_for_kind(selected_kind);
+    let instructions = match app.add_focus {
+        AddItemField::Name => {
+            vec![Line::from(vec![
+                Span::styled("Enter ", Style::default().fg(c_text_dim())),
+                Span::styled("Tab", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+                Span::styled(" to continue", Style::default().fg(c_text_dim())),
+            ])]
+        }
+        AddItemField::Kind => {
+            vec![Line::from(vec![
+                Span::styled("Use ", Style::default().fg(c_text_dim())),
+                Span::styled("←/→", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+                Span::styled(" to select, ", Style::default().fg(c_text_dim())),
+                Span::styled("Tab", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+                Span::styled(" to continue", Style::default().fg(c_text_dim())),
+            ])]
+        }
+        AddItemField::Value => {
+            vec![
+                Line::from(vec![
+                    Span::styled("Enter the ", Style::default().fg(c_text_dim())),
+                    Span::styled(
+                        get_value_title_for_kind(selected_kind).to_lowercase(),
+                        Style::default().fg(c_accent()),
+                    ),
+                    Span::styled(" value", Style::default().fg(c_text_dim())),
+                ]),
+                Line::from(vec![
+                    Span::styled("Press ", Style::default().fg(c_text_dim())),
+                    Span::styled("Ctrl+v", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+                    Span::styled(" to paste from clipboard", Style::default().fg(c_text_dim())),
+                ]),
+                Line::from(vec![
+                    Span::styled("Press ", Style::default().fg(c_text_dim())),
+                    Span::styled("Enter", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+                    Span::styled(" to save", Style::default().fg(c_text_dim())),
+                ]),
+            ]
+        }
+    };
+
     let instr_block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(c_border()));
@@ -1173,18 +1290,6 @@ const fn get_value_title_for_kind(kind: ItemKind) -> &'static str {
         ItemKind::SshKey => "SSH Private Key",
         ItemKind::Certificate => "Certificate (PEM format)",
         ItemKind::Database => "Connection String",
-    }
-}
-
-const fn get_instructions_for_kind(kind: ItemKind) -> &'static str {
-    match kind {
-        ItemKind::Password => "Enter the password to store securely.",
-        ItemKind::EnvVar => "Enter the environment variable value (e.g., API_URL=https://api.example.com).",
-        ItemKind::Note => "Enter any text content, notes, or information.",
-        ItemKind::ApiKey => "Enter API key, bearer token, or authentication token.",
-        ItemKind::SshKey => "Paste SSH private key in OpenSSH or PEM format.",
-        ItemKind::Certificate => "Paste certificate in PEM format (-----BEGIN CERTIFICATE-----).",
-        ItemKind::Database => "Enter connection string (e.g., postgresql://user:pass@host:5432/db).",
     }
 }
 
