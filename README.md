@@ -141,7 +141,7 @@ cargo clippy --all-targets --all-features -D warnings
 cargo nextest run
 ```
 ### Project Structure
-``` 
+``` text
 chamber/
 ├── crates/
 │   ├── vault/           # Core vault logic and crypto
