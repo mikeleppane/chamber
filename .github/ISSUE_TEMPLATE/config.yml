@@ -1,9 +1,9 @@
 blank_issues_enabled: false
 contact_links:
   - name: 💬 Discussions
-    url: https://github.com/mikeleppane/visualvault/discussions
+    url: https://github.com/mikeleppane/chamber/discussions
     about: Ask questions and discuss ideas with the community
   - name: 📚 Documentation
-    url: https://github.com/mikeleppane/visualvault/wiki
+    url: https://github.com/mikeleppane/chamber/wiki
     about: Check out our documentation and guides
 

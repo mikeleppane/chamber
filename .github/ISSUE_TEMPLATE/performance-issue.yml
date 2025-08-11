@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Help us identify and fix performance issues in VisualVault.
+        Help us identify and fix performance issues in Chamber.
 
   - type: textarea
     id: description

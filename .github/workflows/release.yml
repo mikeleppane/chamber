@@ -16,16 +16,16 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: visualvault
-            asset_name: visualvault-linux-amd64
+            artifact_name: chamber
+            asset_name: chamber-linux-amd64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: visualvault.exe
-            asset_name: visualvault-windows-amd64.exe
+            artifact_name: chamber.exe
+            asset_name: chamber-windows-amd64.exe
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: visualvault
-            asset_name: visualvault-macos-amd64
+            artifact_name: chamber
+            asset_name: chamber-macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -89,16 +89,16 @@ jobs:
           
           # Move each file from its subdirectory to the release-assets directory
           # The subdirectories are named after the artifact names
-          if [ -f "./artifacts/visualvault-linux-amd64/visualvault-linux-amd64" ]; then
-            cp "./artifacts/visualvault-linux-amd64/visualvault-linux-amd64" ./release-assets/
+          if [ -f "./artifacts/chamber-linux-amd64/chamber-linux-amd64" ]; then
+            cp "./artifacts/chamber-linux-amd64/chamber-linux-amd64" ./release-assets/
           fi
           
-          if [ -f "./artifacts/visualvault-windows-amd64.exe/visualvault-windows-amd64.exe" ]; then
-            cp "./artifacts/visualvault-windows-amd64.exe/visualvault-windows-amd64.exe" ./release-assets/
+          if [ -f "./artifacts/chamber-windows-amd64.exe/chamber-windows-amd64.exe" ]; then
+            cp "./artifacts/chamber-windows-amd64.exe/chamber-windows-amd64.exe" ./release-assets/
           fi
           
-          if [ -f "./artifacts/visualvault-macos-amd64/visualvault-macos-amd64" ]; then
-            cp "./artifacts/visualvault-macos-amd64/visualvault-macos-amd64" ./release-assets/
+          if [ -f "./artifacts/chamber-macos-amd64/chamber-macos-amd64" ]; then
+            cp "./artifacts/chamber-macos-amd64/chamber-macos-amd64" ./release-assets/
           fi
           
           echo "Contents of ./release-assets:"

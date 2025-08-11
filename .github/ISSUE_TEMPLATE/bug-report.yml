@@ -1,5 +1,5 @@
 name: 🐛 Bug Report
-description: Report a bug or unexpected behavior in VisualVault
+description: Report a bug or unexpected behavior in Chamber
 title: "[Bug]: "
 labels: ["bug", "triage"]
 body:
@@ -24,7 +24,7 @@ body:
       label: Steps to Reproduce
       description: Steps to reproduce the behavior
       placeholder: |
-        1. Launch VisualVault
+        1. Launch Chamber
         2. Go to Settings (press 's')
         3. Select "By Type" organization mode
         4. Start organizing (press 'o')
@@ -95,9 +95,9 @@ body:
       placeholder: e.g., Alacritty, iTerm2, Windows Terminal, Gnome Terminal
 
   - type: input
-    id: visualvault-version
+    id: chamber-version
     attributes:
-      label: VisualVault Version
+      label: Chamber Version
       description: Version or commit hash
       placeholder: v0.1.0 or commit abc123
     validations:
@@ -117,6 +117,6 @@ body:
       options:
         - label: I have searched for similar issues and didn't find any duplicates
           required: true
-        - label: I have tested with the latest version of VisualVault
+        - label: I have tested with the latest version of Chamber
           required: true
         - label: I can reproduce this issue consistently

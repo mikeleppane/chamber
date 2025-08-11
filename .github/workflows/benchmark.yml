@@ -1,5 +1,5 @@
 name: Benchmark
-# This workflow runs performance benchmarks on the VisualVault project.
+# This workflow runs performance benchmarks on the Chamber project.
 # It is triggered on pushes to main and develop branches, and on pull requests to main.
 # DISABLED: Uncomment the 'on' section below to re-enable
 #on:
@@ -132,7 +132,7 @@ jobs:
         if: steps.check-benchmarks.outputs.found == 'true'
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: VisualVault Benchmark
+          name: Chamber Benchmark
           tool: 'cargo'
           output-file-path: output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -257,7 +257,7 @@ jobs:
               comment += '\n```\n\n';
             }
             
-            comment += '📈 [View full benchmark history](https://mikeleppane.github.io/visualvault/bench/)\n';
+            comment += '📈 [View full benchmark history](https://mikeleppane.github.io/chamber/bench/)\n';
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -298,7 +298,7 @@ jobs:
           <!DOCTYPE html>
           <html>
           <head>
-              <title>VisualVault Benchmarks</title>
+              <title>Chamber Benchmarks</title>
               <style>
                   body { font-family: Arial, sans-serif; margin: 40px; }
                   h1 { color: #333; }
@@ -309,7 +309,7 @@ jobs:
               </style>
           </head>
           <body>
-              <h1>VisualVault Performance Benchmarks</h1>
+              <h1>Chamber Performance Benchmarks</h1>
               <p>Latest benchmark results from the main branch.</p>
               <ul class="benchmark-list">
                   <li><a href="report/index.html">📊 Criterion Report</a></li>

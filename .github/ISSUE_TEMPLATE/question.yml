@@ -1,5 +1,5 @@
 name: ❓ Question
-description: Ask a question about VisualVault
+description: Ask a question about Chamber
 title: "[Question]: "
 labels: ["question"]
 body:

@@ -1,5 +1,5 @@
 name: ✨ Feature Request
-description: Suggest a new feature or enhancement for VisualVault
+description: Suggest a new feature or enhancement for Chamber
 title: "[Feature]: "
 labels: ["enhancement", "triage"]
 body:
@@ -34,7 +34,7 @@ body:
       label: Alternative Solutions
       description: Have you considered any alternative solutions?
       placeholder: |
-        Another option would be to use a .visualvaultignore file similar to .gitignore...
+        Another option would be to use a .chambertignore file similar to .gitignore...
 
   - type: dropdown
     id: priority
