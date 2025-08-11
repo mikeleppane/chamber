@@ -52,6 +52,7 @@ clap = { version = "4.5.43", features = ["derive"] }
 crossterm = "0.29.0"
 ratatui = "0.29.0"
 rpassword = "7.4.0"
+tui-textarea = "0.7"
 
 # Utilities
 arboard = "3.6.0"

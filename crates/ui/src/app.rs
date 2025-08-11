@@ -3,7 +3,10 @@ use anyhow::{Result, anyhow};
 use chamber_import_export::{ExportFormat, export_items, import_items};
 use chamber_password_gen::PasswordConfig;
 use chamber_vault::{Item, ItemKind, NewItem, Vault};
+use ratatui::prelude::Style;
+use ratatui::style::Color;
 use std::path::PathBuf;
+use tui_textarea::TextArea;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -107,6 +110,7 @@ pub struct App {
     pub status_message: Option<String>,
     pub status_type: StatusType,
     pub scroll_offset: usize,
+    pub add_value_textarea: TextArea<'static>,
 
     // Change passes key dialog fields
     pub ck_current: String,
@@ -221,6 +225,15 @@ impl App {
             status_message: None,
             status_type: StatusType::Info,
             scroll_offset: 0,
+            add_value_textarea: {
+                let mut textarea = TextArea::default();
+                // Enable line numbers
+                textarea.set_line_number_style(Style::default().fg(Color::DarkGray));
+                textarea.set_cursor_line_style(Style::default());
+                // Optional: set a placeholder text
+                textarea.set_placeholder_text("Enter your value here...");
+                textarea
+            },
 
             ck_current: String::new(),
             ck_new: String::new(),
@@ -425,58 +438,61 @@ impl App {
         )
     }
 
-    /// Adds a new item to the vault and handles the associated UI and status updates.
+    /// Adds a new item to the vault with the specified details and updates the UI.
     ///
-    /// This function allows the user to add an item of a specific type (e.g., Password, API Key, etc.)
-    /// to the vault. It performs validation, handles errors, and updates the application's state
-    /// accordingly.
+    /// # Description
+    /// This function creates a new item based on the user input, validates it,
+    /// and stores it in the vault. If the operation is successful, the UI is updated
+    /// to reflect the addition and the input fields are reset. If an error occurs,
+    /// appropriate error messages and statuses are set.
     ///
-    /// # Process Overview
-    /// - Determines the item type (`ItemKind`) based on `self.add_kind_idx`.
-    /// - Creates a `NewItem` object with user-provided data (`self.add_name`, `self.add_value`) and the resolved kind.
-    /// - Attempts to add the item to the vault using `self.vault.create_item`.
-    /// - Clears user input fields and updates the screen state upon success.
-    /// - Handles errors (e.g., duplicate items) and provides appropriate feedback through status messages.
+    /// # Fields Used
+    /// - `add_kind_idx`: Determines the type of item being added (e.g., `Password`, `EnvVar`, `Note`, etc.).
+    /// - `add_name`: The name of the new item, trimmed of whitespace.
+    /// - `add_value_textarea`: The content or value of the new item, usually multi-line.
+    /// - `vault`: The storage structure which handles item creation.
+    /// - `add_value`: Secondary field for item value, cleared after addition.
+    /// - `add_value_scroll`: Resets the scroll position of the textarea after addition.
+    /// - `screen`: Sets the screen to the main view upon successful addition.
+    /// - `error`: Displays error messages for failed operations.
+    /// - `status`: Updates the user-visible status of the addition operation.
     ///
-    /// # Errors
-    /// This function can return a `Result::Err` in the following scenarios:
-    /// - If the item could not be added to the vault due to internal failures or invalid data.
-    /// - If a duplicate item already exists in the vault, an error message is displayed to inform the user,
-    ///   prompting them to adjust the input.
-    ///
-    /// # UI Updates
-    /// On a successful addition:
-    /// - Clears `self.add_name` and `self.add_value`
-    /// - Resets `self.add_value_scroll`.
-    /// - Refreshes the item list displayed in the application.
-    /// - Navigates back to the main screen and displays a success message.
-    ///
-    /// On failure:
-    /// - Stays on the "`AddItem`" screen, allowing the user to modify their input and retry.
-    /// - Displays appropriate status messages indicating the issue (e.g., duplicate item names or generic errors).
-    ///
-    /// # Fields
-    /// - `self.add_kind_idx`: An index mapping to the type of item to add.
-    /// - `self.add_name`: The name of the item to be added.
-    /// - `self.add_value`: The value associated with the item (e.g., password, API key).
-    /// - `self.vault`: Handles item storage operations.
-    /// - `self.screen`: The current application screen (updated to show the main screen upon success).
-    /// - `self.error`: Stores error messages for display to the user.
-    /// - `self.add_value_scroll`: Scroll position of the value field (reset on success).
+    /// # Process
+    /// 1. Determines the item type (`kind`) based on `add_kind_idx`:
+    ///    - `0` -> Password
+    ///    - `1` -> Environment Variable
+    ///    - `3` -> API Key
+    ///    - `4` -> SSH Key
+    ///    - `5` -> Certificate
+    ///    - `6` -> Database
+    ///    - Default -> Note
+    /// 2. Fetches the item's value from the textarea (`add_value_textarea`), joining multiple lines with `\n`.
+    /// 3. Creates a `NewItem` structure with the gathered data.
+    /// 4. Attempts to add the item using `vault.create_item`.
+    /// 5. Handles responses:
+    ///    - **Success**: Resets input fields, updates item list, switches to the main screen, and displays a success message.
+    ///    - **Failure**: If the name already exists, prompts the user to choose a different name. For other errors, displays a generic error message.
     ///
     /// # Returns
-    /// - `Ok(())`: If the item is successfully added or errors are handled gracefully.
-    /// - `Err`: Propagates errors encountered during the operation that cannot otherwise be resolved internally.
+    /// Returns an `Ok(())` on successful completion of the process or propagates an error if any step fails.
+    ///
+    /// # Errors
+    /// - Returns an error if refreshing the items (`refresh_items`) fails.
+    /// - Updates the `error` and `status` fields with detailed context if item creation fails.
+    ///
+    /// # Notes
+    /// - Resets both single-line (`add_value`) and multi-line (`add_value_textarea`) value fields upon successful addition.
+    /// - Automatically trims leading and trailing whitespace from the item name.
     ///
     /// # Example
-    /// ```
-    /// app.add_name = "MyDatabase".to_string();
-    /// app.add_value = "connection_string".to_string();
-    /// app.add_kind_idx = 6; // Database item kind
-    ///
-    /// if let Err(err) = app.add_item() {
-    ///     eprintln!("Failed to add item: {}", err);
-    /// }
+    /// ```rust
+    /// let mut app = App::default();
+    /// app.add_kind_idx = 0; // Adding a Password item
+    /// app.add_name = "My Password".into();
+    /// app.add_value_textarea = TextArea::from("SuperSecretPassword123");
+    /// let result = app.add_item();
+    /// assert!(result.is_ok());
+    /// assert!(app.error.is_none());
     /// ```
     pub fn add_item(&mut self) -> Result<()> {
         let kind = match self.add_kind_idx {
@@ -488,16 +504,22 @@ impl App {
             6 => ItemKind::Database,
             _ => ItemKind::Note,
         };
+
+        // Get the value from textarea instead of add_value
+        let value = self.add_value_textarea.lines().join("\n");
+
         let new_item = NewItem {
             name: self.add_name.trim().to_string(),
             kind,
-            value: self.add_value.clone(),
+            value, // Use the textarea content
         };
 
         match self.vault.create_item(&new_item) {
             Ok(()) => {
                 self.add_name.clear();
                 self.add_value.clear();
+                // Reset the textarea as well
+                self.add_value_textarea = TextArea::default();
                 self.add_value_scroll = 0;
                 self.refresh_items()?;
                 self.screen = Screen::Main;
@@ -519,7 +541,6 @@ impl App {
                     self.error = Some(format!("Failed to add item: {msg}"));
                     self.set_status(format!("Failed to add item: {msg}"), StatusType::Error);
                 }
-                // Stay on the AddItem screen so the user can adjust the name/value
             }
         }
         Ok(())
@@ -1022,24 +1043,21 @@ impl App {
     /// }
     /// ```
     pub fn paste_to_add_value(&mut self) -> Result<()> {
-        let mut clipboard = arboard::Clipboard::new().map_err(|e| anyhow!("Failed to access clipboard: {}", e))?;
-
-        match clipboard.get_text() {
-            Ok(text) => {
-                if text.is_empty() {
-                    self.set_status("Clipboard is empty".to_string(), StatusType::Warning);
-                } else {
-                    self.add_value.push_str(&text);
-                    self.set_status(
-                        format!("Pasted {} characters from clipboard", text.len()),
-                        StatusType::Success,
-                    );
-                }
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            if let Ok(text) = clipboard.get_text() {
+                // Clear existing content and insert new text
+                self.add_value_textarea.select_all();
+                self.add_value_textarea.cut();
+                self.add_value_textarea.insert_str(text);
+                self.set_status("Pasted from clipboard".to_string(), StatusType::Success);
+                Ok(())
+            } else {
+                self.set_status("No text in clipboard".to_string(), StatusType::Warning);
+                Ok(())
             }
-            Err(_) => {
-                self.set_status("No text content in clipboard".to_string(), StatusType::Warning);
-            }
+        } else {
+            self.set_status("Failed to access clipboard".to_string(), StatusType::Error);
+            Ok(())
         }
-        Ok(())
     }
 }

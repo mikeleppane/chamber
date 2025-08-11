@@ -4,7 +4,8 @@ use crate::app::{
 };
 use anyhow::Result;
 use chamber_vault::ItemKind;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use ratatui::crossterm::event;
+use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::layout::Alignment;
 use ratatui::{
     Frame, Terminal,
@@ -143,7 +144,7 @@ pub fn run_app(app: &mut App) -> Result<()> {
 
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::cognitive_complexity)]
-fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
+fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
     // Handle global Ctrl combinations FIRST, before screen-specific logic
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         match key.code {
@@ -236,6 +237,20 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 }
                 return Ok(false); // Prevent further processing
             }
+            KeyCode::Enter => {
+                // Handle Ctrl+Enter for saving based on current screen and focus
+                match app.screen {
+                    Screen::AddItem if matches!(app.add_focus, AddItemField::Value) => {
+                        // Save the item when Ctrl+Enter is pressed in Value field
+                        return app.add_item().map(|()| false);
+                    }
+                    _ => {
+                        // For other screens/fields, let the normal handling occur
+                    }
+                }
+                return Ok(false);
+            }
+
             _ => {
                 // For other Ctrl combinations, don't process them as regular characters
                 return Ok(false);
@@ -362,10 +377,8 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
             KeyCode::Esc => {
                 app.screen = Screen::Main;
             }
-            KeyCode::Enter => {
-                app.add_item()?;
-            }
             KeyCode::Tab => {
+                app.add_value = app.add_value_textarea.lines().join("\n");
                 app.add_focus = match app.add_focus {
                     AddItemField::Name => AddItemField::Kind,
                     AddItemField::Kind => AddItemField::Value,
@@ -373,6 +386,19 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 };
             }
             KeyCode::Left | KeyCode::Right if matches!(app.add_focus, AddItemField::Kind) => {
+                let total_kinds = 7;
+                if key.code == KeyCode::Right {
+                    app.add_kind_idx = (app.add_kind_idx + 1) % total_kinds;
+                } else {
+                    app.add_kind_idx = if app.add_kind_idx == 0 {
+                        total_kinds - 1
+                    } else {
+                        app.add_kind_idx - 1
+                    };
+                }
+            }
+
+            /*KeyCode::Left | KeyCode::Right if matches!(app.add_focus, AddItemField::Kind) => {
                 let total_kinds = 7;
                 if key.code == KeyCode::Right {
                     app.add_kind_idx = (app.add_kind_idx + 1) % total_kinds;
@@ -392,8 +418,8 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 if lines_count > 5 {
                     app.add_value_scroll = (app.add_value_scroll + 1).min(lines_count.saturating_sub(5));
                 }
-            }
-            KeyCode::Backspace => match app.add_focus {
+            }*/
+            /*KeyCode::Backspace => match app.add_focus {
                 AddItemField::Name => {
                     app.add_name.pop();
                 }
@@ -405,16 +431,59 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                     }
                 }
                 AddItemField::Kind => {}
-            },
+            },*/
             KeyCode::Char(c) => {
                 // All regular character input (Ctrl combinations handled above)
                 match app.add_focus {
                     AddItemField::Name => app.add_name.push(c),
-                    AddItemField::Value => app.add_value.push(c),
+                    AddItemField::Value => {
+                        app.add_value_textarea.input(key);
+                    }
                     AddItemField::Kind => {}
                 }
             }
-            _ => {}
+            _ => {
+                match app.add_focus {
+                    AddItemField::Name => {
+                        // Handle name field input
+                        match key.code {
+                            KeyCode::Enter => {
+                                // Save item when Enter is pressed in name field
+                                app.add_value = app.add_value_textarea.lines().join("\n");
+                                return app.add_item().map(|()| false);
+                            }
+                            KeyCode::Backspace => {
+                                app.add_name.pop();
+                            }
+                            KeyCode::Char(c) => {
+                                app.add_name.push(c);
+                            }
+                            _ => {}
+                        }
+                    }
+                    AddItemField::Kind => {
+                        // Kind field doesn't need text input, just navigation
+                        if matches!(key.code, KeyCode::Enter) {
+                            app.add_value = app.add_value_textarea.lines().join("\n");
+                            return app.add_item().map(|()| false);
+                        }
+                    }
+                    AddItemField::Value => {
+                        // Let textarea handle ALL input for Value field
+                        match key.code {
+                            // Only intercept Ctrl+Enter for saving
+                            KeyCode::Enter if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                                app.add_value = app.add_value_textarea.lines().join("\n");
+                                return app.add_item().map(|()| false);
+                            }
+                            // Let textarea handle everything else, including regular Enter
+                            _ => {
+                                app.add_value_textarea.input(key);
+                            }
+                        }
+                    }
+                }
+            }
         },
 
         Screen::ViewItem => match key.code {
@@ -1200,34 +1269,36 @@ fn draw_add_item(f: &mut Frame, app: &App) {
         .alignment(Alignment::Center);
     f.render_widget(kind_widget, chunks[1]);
 
-    // Value input with scrolling support
     let value_title = get_value_title_for_kind(selected_kind);
-    let value_block = Block::default()
-        .title(format!("{value_title} (↑↓ to scroll)"))
-        .borders(Borders::ALL)
-        .border_style(if matches!(app.add_focus, AddItemField::Value) {
-            Style::default().fg(c_accent())
-        } else {
-            Style::default().fg(c_border())
-        });
 
-    // Handle scrollable display
-    let lines: Vec<&str> = app.add_value.lines().collect();
-    let visible_height = chunks[2].height.saturating_sub(2) as usize; // Account for borders
+    // Create a mutable textarea for rendering
+    let mut textarea = app.add_value_textarea.clone();
 
-    let display_lines = if lines.len() > visible_height {
-        let start = app.add_value_scroll;
-        let end = (start + visible_height).min(lines.len());
-        lines[start..end].join("\n")
-    } else {
-        app.add_value.clone()
-    };
+    // Set the block with proper styling
+    textarea.set_block(
+        Block::default()
+            .title(format!("{value_title} (Enter for new line, Ctrl+Enter to save)"))
+            .borders(Borders::ALL)
+            .border_style(if matches!(app.add_focus, AddItemField::Value) {
+                Style::default().fg(c_accent())
+            } else {
+                Style::default().fg(c_border())
+            }),
+    );
 
-    let value_input = Paragraph::new(display_lines)
-        .block(value_block)
-        .style(Style::default().fg(c_text()))
-        .wrap(Wrap { trim: false });
-    f.render_widget(value_input, chunks[2]);
+    // Set text and cursor styles
+    textarea.set_style(Style::default().fg(c_text()));
+
+    // Set cursor style when focused
+    if matches!(app.add_focus, AddItemField::Value) {
+        textarea.set_cursor_line_style(Style::default().bg(c_bg()));
+        textarea.set_cursor_style(Style::default().bg(c_accent()));
+    }
+
+    // Enable line numbers with styling
+    textarea.set_line_number_style(Style::default().fg(c_text_dim()));
+
+    f.render_widget(&textarea, chunks[2]);
 
     // Instructions
     let instructions = match app.add_focus {
@@ -1259,14 +1330,22 @@ fn draw_add_item(f: &mut Frame, app: &App) {
                 ]),
                 Line::from(vec![
                     Span::styled("Press ", Style::default().fg(c_text_dim())),
-                    Span::styled("Ctrl+v", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
-                    Span::styled(" to paste from clipboard", Style::default().fg(c_text_dim())),
-                ]),
-                Line::from(vec![
-                    Span::styled("Press ", Style::default().fg(c_text_dim())),
                     Span::styled("Enter", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+                    Span::styled(" for new line, ", Style::default().fg(c_text_dim())),
+                    Span::styled(
+                        "Ctrl+Enter",
+                        Style::default().fg(c_accent()).add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(" to save", Style::default().fg(c_text_dim())),
                 ]),
+                Line::from(vec![Span::styled(
+                    "Press Ctrl+v to paste content from clipboard",
+                    Style::default().fg(c_text_dim()),
+                )]),
+                Line::from(vec![Span::styled(
+                    "Line numbers shown on left",
+                    Style::default().fg(c_text_dim()),
+                )]),
             ]
         }
     };
