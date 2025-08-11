@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+chamber-backup = {workspace = true}
 chamber-cli = {workspace = true}
 chamber-ui = {workspace = true}
+chamber-vault = {workspace = true}
 crossterm = {workspace = true}
 anyhow = {workspace = true}
 clap = {workspace = true}

@@ -1,13 +1,14 @@
 use anyhow::Result;
+use chamber_backup::BackgroundService;
 use chamber_cli::Cli;
 use chamber_cli::handle_command;
 use chamber_ui::{App, run_app};
+use chamber_vault::Vault;
 use clap::Parser;
-#[cfg(windows)]
-use mimalloc::MiMalloc;
-
 #[cfg(not(windows))]
 use jemallocator::Jemalloc;
+#[cfg(windows)]
+use mimalloc::MiMalloc;
 
 #[cfg(windows)]
 #[global_allocator]
@@ -22,6 +23,14 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     if let Some(cmd) = cli.command {
         return handle_command(cmd);
+    }
+
+    let vault = Vault::open_default()?;
+    let backup_config = vault.get_backup_config().unwrap_or_default();
+
+    if backup_config.enabled {
+        let background_service = BackgroundService::new(vault, backup_config);
+        background_service.start();
     }
 
     // TUI mode

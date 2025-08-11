@@ -19,6 +19,7 @@ and other secrets with strong cryptographic guarantees.
 - **💾 SQLite Backend**: Reliable, ACID-compliant storage with WAL mode and foreign key constraints
 - **📱 Terminal UI**: Beautiful, responsive interface built with Ratatui and Crossterm
 - **📊 Multiple Export Formats**: JSON, CSV, and Chamber Backup formats with robust parsing
+- **🔄 Backup**: a comprehensive backup system that ensures your sensitive data is automatically protected
 - **🔄 Import/Export**: Seamless data migration and backup capabilities
 - **🏷️ Flexible Item Types**: Support for passwords, environment variables, API keys, SSH keys, certificates, and more
 - **🛡️ Security-First Design**: Zero-knowledge architecture with local-only storage
@@ -325,6 +326,211 @@ name,kind,value,created_at,updated_at
   ]
 }
 ```
+
+## Chamber Backup System
+Chamber provides a comprehensive backup system that ensures your sensitive data is automatically protected with configurable retention policies, multiple export formats, and integrity verification.
+### 🔄 Backup Features
+#### **Automated Backup System**
+- **Scheduled Backups**: Configurable interval-based automatic backups (hourly, daily, weekly)
+- **Background Service**: Non-intrusive background process that runs backup checks
+- **Smart Scheduling**: Only creates backups when needed based on your configured interval
+- **Retention Management**: Automatic cleanup of old backups with configurable retention limits
+
+#### **Multiple Export Formats**
+- **JSON**: Human-readable structured data format
+- **CSV**: Spreadsheet-compatible format for easy viewing and manipulation
+- **Chamber Backup**: Enhanced format with metadata including version info and export timestamps
+
+#### **Data Integrity & Security**
+- **Compression**: Optional gzip compression to reduce backup file sizes
+- **Verification**: Automatic backup integrity verification after creation
+- **Timestamped Files**: Each backup includes precise timestamp for easy identification
+- **Format Detection**: Automatic format detection based on file extensions and content
+
+### 🚀 Quick Start
+#### Enable Automatic Backups
+``` bash
+# Enable daily backups with 7-day retention
+chamber backup configure --enable true --interval 24 --max-backups 7
+
+# Set custom backup directory
+chamber backup configure --backup-dir ~/.chamber/backups
+
+# Enable compression and verification
+chamber backup configure --compress true --verify true
+```
+#### Manual Backup Operations
+``` bash
+# Create a backup immediately
+chamber backup now
+
+# Force backup even if one was recently created
+chamber backup now --force
+
+# Create backup with custom output location
+chamber backup now --output /path/to/custom/backup.json
+```
+#### Backup Management
+``` bash
+# List all existing backups
+chamber backup list
+
+# Show detailed backup information
+chamber backup list --verbose
+
+# Check current backup status and configuration
+chamber backup status
+
+# Verify a backup file's integrity
+chamber backup verify /path/to/backup.json
+```
+#### Data Recovery
+``` bash
+# Restore from a backup file
+chamber backup restore /path/to/backup.json
+
+# Skip confirmation prompt (use with caution)
+chamber backup restore /path/to/backup.json --yes
+```
+#### Maintenance
+``` bash
+# Clean up old backups manually
+chamber backup cleanup
+
+# Preview what would be deleted (dry run)
+chamber backup cleanup --dry-run
+
+# Keep only 3 most recent backups
+chamber backup cleanup --keep 3
+```
+### ⚙️ Configuration Options
+#### Backup Settings
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `enabled` | `false` | Enable/disable automatic backups |
+| `interval` | `24` hours | How often to create backups |
+| `max_backups` | `7` | Maximum number of backups to retain |
+| `backup_dir` | `~/.chamber/backups` | Directory to store backup files |
+| `format` | `backup` | Export format (, , ) `json``csv``backup` |
+| `compress` | `true` | Enable gzip compression |
+| `verify` | `true` | Verify backup integrity after creation |
+#### Configuration Examples
+``` bash
+# Professional setup - frequent backups with long retention
+chamber backup configure \
+  --enable true \
+  --interval 6 \
+  --max-backups 28 \
+  --format backup \
+  --compress true \
+  --verify true
+
+# Minimal setup - daily backups with short retention
+chamber backup configure \
+  --enable true \
+  --interval 24 \
+  --max-backups 3 \
+  --format json \
+  --compress false
+
+# Development setup - CSV format for easy inspection
+chamber backup configure \
+  --enable true \
+  --interval 12 \
+  --max-backups 5 \
+  --format csv \
+  --backup-dir ./backups
+```
+### 📁 Backup File Format
+#### Filename Convention
+Backups use a standardized naming convention:
+``` 
+chamber_backup_YYYY-MM-DD_HH-MM-SSZ_TIMESTAMP.format[.gz]
+```
+Examples:
+- `chamber_backup_2024-01-15_14-30-00Z_1705327800.backup.gz`
+- `chamber_backup_2024-01-15_14-30-00Z_1705327800.json`
+- `chamber_backup_2024-01-15_14-30-00Z_1705327800.csv.gz`
+
+#### Chamber Backup Format
+The enhanced Chamber backup format includes metadata:
+``` json
+{
+  "version": "1.0",
+  "exported_at": "2024-01-15T14:30:00Z",
+  "item_count": 42,
+  "items": [
+    {
+      "name": "github-token",
+      "kind": "apikey",
+      "value": "ghp_xxxxxxxxxxxx",
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+### 🔧 Background Service
+When automatic backups are enabled, Chamber runs a lightweight background service that:
+1. **Checks backup schedule** every hour
+2. **Creates backups** when the configured interval has passed
+3. **Verifies backup integrity** (if enabled)
+4. **Applies compression** (if enabled)
+5. **Manages retention** by cleaning up old backups
+6. **Logs errors** to help diagnose issues
+
+The background service is automatically started when you launch the TUI mode with backups enabled.
+### 🛡️ Security Considerations
+#### Data Protection
+- **Encrypted at Rest**: Your vault data remains encrypted; backups export the decrypted secrets
+- **Local Storage**: Backups are stored locally, maintaining Chamber's zero-knowledge architecture
+- **File Permissions**: Backup files inherit your system's file permissions
+- **Master Password**: You must enter your master password to create or restore backups
+
+### Best Practices
+- **Secure Backup Location**: Store backups in a secure location (encrypted drive, secure cloud storage)
+- **Regular Testing**: Periodically test backup restoration to ensure data integrity
+- **Access Control**: Limit access to backup files using appropriate file system permissions
+- **Offsite Storage**: Consider copying backups to offsite locations for disaster recovery
+
+### 📊 Backup Status and Monitoring
+#### Status Command Output
+``` bash
+$ chamber backup status
+🔒 Backup Configuration Status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Status: ✅ Enabled
+   Directory: /home/user/.chamber/backups
+   Interval: 24 hours
+   Max backups: 7
+   Format: backup
+   Compression: ✅ Enabled
+   Verification: ✅ Enabled
+
+📁 Most Recent Backup:
+   File: chamber_backup_2024-01-15_14-30-00Z_1705327800.backup.gz
+   Date: 2024-01-15 14:30:00 UTC
+   Size: 2048 bytes
+```
+#### Listing Backups
+``` bash
+$ chamber backup list --verbose
+Found 7 backup(s):
+
+1. chamber_backup_2024-01-15_14-30-00Z_1705327800.backup.gz
+   Path: /home/user/.chamber/backups/chamber_backup_2024-01-15_14-30-00Z_1705327800.backup.gz
+   Size: 2048 bytes (0.00 MB)
+   Date: 2024-01-15 14:30:00 UTC
+   Timestamp: 2024-01-15T14:30:00Z
+
+2. chamber_backup_2024-01-14_14-30-00Z_1705241400.backup.gz
+   Path: /home/user/.chamber/backups/chamber_backup_2024-01-14_14-30-00Z_1705241400.backup.gz
+   Size: 1987 bytes (0.00 MB)
+   Date: 2024-01-14 14:30:00 UTC
+   Timestamp: 2024-01-14T14:30:00Z
+```
+
 ## 🧪 Testing
 Chamber includes comprehensive test coverage across all components:
 ### Running Tests

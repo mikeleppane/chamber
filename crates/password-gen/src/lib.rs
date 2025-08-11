@@ -192,7 +192,7 @@ impl PasswordConfig {
 ///
 /// Returns an `anyhow::Result<String>`:
 /// - `Ok(String)` containing the generated password if successful.
-/// - `Err(anyhow::Error)` if an error occurs during password generation.`
+/// - `Err(anyhow::Error)` if an error occurs during password generation.
 ///
 /// # Errors
 ///

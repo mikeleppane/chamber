@@ -1,0 +1,17 @@
+[package]
+name = "chamber-backup"
+version = "0.1.0"
+edition = "2024"
+description = "CLI interface for Chamber secrets manager"
+
+[dependencies]
+chamber-vault = {workspace = true}
+chamber-import-export = {workspace = true}
+time = {workspace = true}
+anyhow = {workspace = true}
+serde_json = {workspace = true}
+flate2 = {workspace = true}
+serde = {workspace = true}
+
+[dev-dependencies]
+tempfile = "3.20.0"

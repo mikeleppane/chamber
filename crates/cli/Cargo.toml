@@ -9,8 +9,10 @@ anyhow = { workspace = true }
 chamber-vault = { workspace = true }
 chamber-import-export = { workspace = true  }
 chamber-password-gen = { workspace = true  }
+chamber-backup = {workspace = true}
 clap = { workspace = true }
 rpassword = { workspace = true }
-
+time = {workspace = true}
+chrono = {workspace = true}
 [dev-dependencies]
 time = "0.3.41"

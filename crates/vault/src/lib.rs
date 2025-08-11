@@ -1,3 +1,4 @@
+pub mod config;
 pub mod crypto;
 pub mod db;
 
@@ -9,6 +10,7 @@ pub use crypto::{
 
 pub use db::{Db, ItemRow};
 
+pub use crate::config::BackupConfig;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -138,7 +140,120 @@ impl Vault {
         Ok(Self { db, key: None, db_path })
     }
 
+    /// Opens the default instance of a resource.
+    ///
+    /// This function attempts to open the default instance of a resource. If the default instance
+    /// does not exist, it will create a new one. The specific behavior of this function depends
+    /// on the implementation of `Self::open_or_create`.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self>` - If successful, returns an instance of the resource wrapped in `Ok`.
+    ///   If an error occurs during the opening or creation process, it returns an `Err` containing
+    ///   the corresponding error.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the resource cannot be opened or created for any
+    /// reason, such as insufficient permissions or missing configuration.
+    pub fn open_default() -> Result<Self> {
+        Self::open_or_create(None)
+    }
+
     pub fn db_path(&self) -> &Path {
+        &self.db_path
+    }
+
+    /// Retrieves the backup configuration for the system.
+    ///
+    /// This function attempts to load the backup configuration from a JSON file
+    /// stored in the directory containing the database. If the configuration file
+    /// does not exist, a default `BackupConfig` instance is returned.
+    ///
+    /// # Behavior
+    ///
+    /// - The configuration file is named `backup_config.json`, and its location
+    ///   is inferred based on the parent directory of the `db_path` provided.
+    /// - If the parent directory cannot be determined, the current directory (`"."`)
+    ///   is used as the fallback location to look for the configuration file.
+    /// - The function reads the contents of the file and deserializes it into a
+    ///   `BackupConfig` object using `serde_json`.
+    /// - If the file does not exist, the function returns the default
+    ///   `BackupConfig` object.
+    ///
+    /// # Errors
+    ///
+    /// This function may return an error in the following scenarios:
+    /// - If the configuration file exists, but reading its contents fails,
+    ///   an `std::io::Error` is returned.
+    /// - If deserialization of the file content into a `BackupConfig` object fails,
+    ///   a `serde_json::Error` is returned.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` wrapping the backup configuration:
+    /// - `Ok(BackupConfig)` if the configuration is successfully loaded or the
+    ///   default configuration is returned.
+    /// - `Err` if an error occurs while reading or deserializing the configuration file.
+    pub fn get_backup_config(&self) -> Result<BackupConfig> {
+        // Try to read backup config from the database
+        // For now, we'll store it as a JSON string in a special meta-table or file
+        let config_path = self
+            .db_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("backup_config.json");
+
+        if config_path.exists() {
+            let content = std::fs::read_to_string(config_path)?;
+            let config: BackupConfig = serde_json::from_str(&content)?;
+            Ok(config)
+        } else {
+            Ok(BackupConfig::default())
+        }
+    }
+
+    /// Sets the backup configuration for the database by saving it to a file named `backup_config.json`
+    /// in the parent directory of the database path.
+    ///
+    /// The method performs the following steps:
+    /// 1. Resolves the `backup_config.json` file path in the parent directory of `self.db_path`.
+    /// 2. Ensures the parent directory for the file exists, creating it if necessary.
+    /// 3. Serializes the `BackupConfig` object to a pretty-printed JSON string.
+    /// 4. Writes the serialized JSON string to the file.
+    ///
+    /// # Arguments
+    /// * `config` - A reference to a `BackupConfig` object containing the backup configuration settings
+    ///   that will be saved to the file.
+    ///
+    /// # Returns
+    /// * `Ok(())` if the backup configuration is successfully saved.
+    /// * `Err` if any file system or serialization operation fails.
+    ///
+    /// # Errors
+    /// This function can return an error in the following cases:
+    /// * Failure to create the parent directory for the config file.
+    /// * Failure to serialize the `BackupConfig` object into a JSON string.
+    /// * Failure to write the serialized JSON string to the file.
+    pub fn set_backup_config(&self, config: &BackupConfig) -> Result<()> {
+        let config_path = self
+            .db_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("backup_config.json");
+
+        // Ensure directory exists
+        if let Some(parent) = config_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let content = serde_json::to_string_pretty(&config)?;
+        std::fs::write(config_path, content)?;
+        Ok(())
+    }
+
+    /// Get the database path for this vault
+    pub fn get_db_path(&self) -> &std::path::Path {
         &self.db_path
     }
 
@@ -233,6 +348,10 @@ impl Vault {
         let vk = unwrap_vault_key(&master_derived, &wrapped, None)?;
         self.key = Some(vk);
         Ok(())
+    }
+
+    pub const fn is_unlocked(&self) -> bool {
+        self.key.is_some()
     }
 
     /// Retrieves a list of items from the database, decrypting their stored values.
@@ -467,6 +586,20 @@ impl Vault {
 
         self.db.update_item(id, &nonce_cipher.0, &nonce_cipher.1)?;
         Ok(())
+    }
+}
+
+// Add Clone implementation for Vault if it doesn't exist
+impl Clone for Vault {
+    #[allow(clippy::expect_used)]
+    fn clone(&self) -> Self {
+        // Note: This creates a new database connection
+        // The key material is not cloned for security reasons
+        Self {
+            db: Db::open(&self.db_path).expect("Failed to open database connection"),
+            key: None, // Don't clone the key for security
+            db_path: self.db_path.clone(),
+        }
     }
 }
 
