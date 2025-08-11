@@ -26,6 +26,11 @@ and other secrets with strong cryptographic guarantees.
 ### 📸 Screenshots
 
 <p align="center">
+  <img src="images/items.png" alt="VisualVault's Settings Page" />
+  <span>Chamber's Main Page with Items</span>
+</p>
+
+<p align="center">
   <img src="images/main.png" alt="VisualVault's Main Page" />
   <span>Chamber's Main Page</span>
 </p>
@@ -33,11 +38,6 @@ and other secrets with strong cryptographic guarantees.
 <p align="center">
   <img src="images/unlock.png" alt="VisualVault's Settings Page" />
   <span>Chamber's Login Page</span>
-</p>
-
-<p align="center">
-  <img src="images/items.png" alt="VisualVault's Settings Page" />
-  <span>Chamber's Main Page with Items</span>
 </p>
 
 ### 🎥 Introduction Videos
