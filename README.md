@@ -1,5 +1,6 @@
 # Chamber
-A secure, local-first secrets manager built with Rust, featuring encrypted storage, intuitive terminal UI, and comprehensive import/export capabilities.
+A secure, local-first secrets manager built with Rust, featuring encrypted storage, intuitive terminal UI, 
+and comprehensive import/export capabilities.
 
 ![CI](https://github.com/mikeleppane/chamber/workflows/CI/badge.svg)
 [![codecov](https://codecov.io/gh/mikeleppane/chamber/branch/main/graph/badge.svg)](https://codecov.io/gh/mikeleppane/chamber)
@@ -9,7 +10,10 @@ A secure, local-first secrets manager built with Rust, featuring encrypted stora
 <img alt="License" src="https://img.shields.io/badge/License-MIT-blue">
 
 ## 🌟 Overview
-Chamber is a modern secret management solution designed for developers and security-conscious users who need reliable, encrypted storage for sensitive information. Built entirely in Rust, Chamber provides a robust foundation for managing passwords, API keys, certificates, database credentials, and other secrets with strong cryptographic guarantees.
+Chamber is a modern secret management solution designed for developers and security-conscious users who need reliable, 
+encrypted storage for sensitive information. Built entirely in Rust, Chamber provides a robust foundation for 
+managing passwords, API keys, certificates, database credentials, 
+and other secrets with strong cryptographic guarantees.
 ### ✨ Features
 - **🔐 Strong Encryption**: ChaCha20-Poly1305 authenticated encryption with Argon2 key derivation
 - **💾 SQLite Backend**: Reliable, ACID-compliant storage with WAL mode and foreign key constraints
@@ -44,14 +48,14 @@ Chamber is a modern secret management solution designed for developers and secur
 </p>
 
 ## 📚 Table of Contents
-- [Getting Started](#getting-started)
-- [Development Setup](#development-setup)
-- [Architecture](#architecture)
-- [Usage](#usage)
-- [Testing](#testing)
-- [Security](#security)
-- [Contributing](#contributing)
-- [License](#license)
+- [Getting Started](#-getting-started)
+- [Development Setup](#-development-setup)
+- [Architecture](#-architecture)
+- [Usage](#-usage)
+- [Testing](#-testing)
+- [Security](#-security)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ## 🚀 Getting Started
 ### Prerequisites
@@ -97,7 +101,7 @@ chamber
 ``` bash
    chamber ui
 ```
-## Development Setup
+## 🛠️ Development Setup
 ### Environment Setup
 1. **Install Rust toolchain**:
 ``` bash
@@ -144,7 +148,7 @@ chamber/
 ├── docs/               # Additional documentation
 └── examples/           # Usage examples
 ```
-## Architecture
+## 🏗️ Architecture
 Chamber follows a modular architecture with clear separation of concerns:
 ``` mermaid
 graph TB
@@ -161,7 +165,7 @@ graph TB
 ### Core Components
 #### Vault Module (`crates/vault`)
 - **Purpose**: Core business logic and data models
-- **Key Types**: , , , `Vault``Item``ItemKind``NewItem`
+- **Key Types**: `Vault`,`Item`,`ItemKind`,`NewItem`
 - **Responsibilities**:
   - Vault lifecycle management (create, initialize, unlock)
   - CRUD operations for secrets
@@ -353,7 +357,7 @@ cargo bench --bench storage
 # Profile memory usage
 cargo run --bin chamber --features profiling
 ```
-## Security
+## 🛡️ Security
 ### Cryptographic Specifications
 - **Key Derivation**: Argon2id with minimum 64MB memory, 3 iterations
 - **Encryption**: ChaCha20-Poly1305 with 256-bit keys and 96-bit nonces
@@ -407,7 +411,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 We have a [Code of Conduct](CODE_OF_CONDUCT.md) that all contributors and participants are expected to follow.
 
 ## ⚖️ License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License—see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 

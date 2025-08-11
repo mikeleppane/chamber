@@ -12,6 +12,7 @@ extend-exclude = [
     "*.gif",
     "*.ico",
     "LICENSE*",
+    "crates/password-gen/src/lib.rs"
 ]
 
 [default]
@@ -49,6 +50,7 @@ locale = "en-us"
 "VisualVault" = "VisualVault"
 "mikeleppane" = "mikeleppane"
 "Leppänen" = "Leppänen"
+"Ratatui" = "Ratatui"
 
 # Common technical misspellings that are actually correct
 "impl" = "impl"
@@ -80,6 +82,7 @@ locale = "en-us"
 # Common false positives
 "ba" = "ba" # often appears in hex strings
 "de" = "de" # often appears in hex strings
+
 
 [default.extend-identifiers]
 # Allow specific identifiers that might be flagged as typos

@@ -106,6 +106,7 @@ pub struct App {
     pub add_value_scroll: usize,
     pub status_message: Option<String>,
     pub status_type: StatusType,
+    pub scroll_offset: usize,
 
     // Change passes key dialog fields
     pub ck_current: String,
@@ -219,6 +220,7 @@ impl App {
             add_value_scroll: 0,
             status_message: None,
             status_type: StatusType::Info,
+            scroll_offset: 0,
 
             ck_current: String::new(),
             ck_new: String::new(),
@@ -390,7 +392,7 @@ impl App {
         self.filtered_items.get(self.selected)
     }
 
-    pub fn get_item_counts(&self) -> (usize, usize, usize, usize) {
+    pub fn get_item_counts(&self) -> (usize, usize, usize, usize, usize, usize, usize, usize) {
         let passwords = self
             .items
             .iter()
@@ -398,8 +400,14 @@ impl App {
             .count();
         let env_vars = self.items.iter().filter(|i| matches!(i.kind, ItemKind::EnvVar)).count();
         let notes = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Note)).count();
-        (self.items.len(), passwords, env_vars, notes)
+        let api_keys = self.items.iter().filter(|i| matches!(i.kind, ItemKind::ApiKey)).count();
+        let ssh_keys = self.items.iter().filter(|i| matches!(i.kind, ItemKind::SshKey)).count();
+        let certificates = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Certificate)).count();
+        let databases = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Database)).count();
+
+        (self.items.len(), passwords, env_vars, notes, api_keys, ssh_keys, certificates, databases)
     }
+
 
     /// Adds a new item to the vault and handles the associated UI and status updates.
     ///
@@ -951,5 +959,18 @@ impl App {
 
     pub fn clear_status(&mut self) {
         self.status_message = None;
+    }
+
+    pub fn is_in_input_mode(&self) -> bool {
+        match self.screen {
+            Screen::AddItem
+            | Screen::EditItem
+            | Screen::ChangeMaster
+            | Screen::GeneratePassword
+            | Screen::ImportExport
+            | Screen::Unlock => true,
+            Screen::Main if !self.search_query.is_empty() => true, // Search mode
+            _ => false,
+        }
     }
 }

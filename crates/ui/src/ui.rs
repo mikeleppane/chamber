@@ -56,6 +56,32 @@ const fn c_badge_note() -> Color {
     Color::Rgb(120, 180, 255)
 }
 
+const fn c_badge_api() -> Color {
+    Color::Rgb(255, 165, 0) // Orange
+}
+
+const fn c_badge_ssh() -> Color {
+    Color::Rgb(0, 255, 255) // Cyan
+}
+
+const fn c_badge_cert() -> Color {
+    Color::Rgb(255, 20, 147) // Deep Pink
+}
+
+const fn c_badge_db() -> Color {
+    Color::Rgb(50, 205, 50) // Lime Green
+}
+
+
+fn truncate_text(text: &str, max_width: usize) -> String {
+    if text.chars().count() <= max_width {
+        text.to_string()
+    } else {
+        let truncated: String = text.chars().take(max_width.saturating_sub(3)).collect();
+        format!("{truncated}...")
+    }
+}
+
 /// Runs the application in a terminal-based user interface with an event loop.
 ///
 /// This function initializes a terminal using the Crossterm backend, clears its
@@ -193,10 +219,46 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 app.delete_selected()?;
             }
             KeyCode::Down => {
-                app.selected = (app.selected + 1).min(app.items.len().saturating_sub(1));
+                if app.filtered_items.is_empty() {
+                    return Ok(false);
+                }
+
+                if app.selected < app.filtered_items.len().saturating_sub(1) {
+                    app.selected += 1;
+                } else {
+                    // Wrap to top
+                    app.selected = 0;
+                }
+
+                // Update scroll offset to keep selected item visible
+                let viewport_height = 10; // You might want to calculate this based on terminal height
+                if app.selected >= app.scroll_offset + viewport_height {
+                    app.scroll_offset = app.selected.saturating_sub(viewport_height - 1);
+                } else if app.selected == 0 {
+                    app.scroll_offset = 0;
+                }
+
+
             }
             KeyCode::Up => {
-                app.selected = app.selected.saturating_sub(1);
+                if app.filtered_items.is_empty() {
+                    return Ok(false);
+                }
+
+                if app.selected > 0 {
+                    app.selected -= 1;
+                } else {
+                    // Wrap to bottom
+                    app.selected = app.filtered_items.len().saturating_sub(1);
+                }
+
+                // Update scroll offset to keep selected item visible
+                let viewport_height = 10; // You might want to calculate this based on terminal height
+                if app.selected < app.scroll_offset {
+                    app.scroll_offset = app.selected;
+                }
+
+
             }
             KeyCode::Char('r') => {
                 app.refresh_items()?;
@@ -611,6 +673,7 @@ fn draw_unlock(f: &mut Frame, app: &App, body: Rect) {
     f.render_widget(p, area);
 }
 
+
 #[allow(clippy::too_many_lines)]
 fn draw_main(f: &mut Frame, app: &App, body: Rect) {
     let chunks = Layout::default()
@@ -618,30 +681,44 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
         .split(centered_rect(96, 90, body));
 
-    // Create categorized list with enhanced visual separation
+    // Calculate viewport dimensions
+    let list_area = chunks[0];
+    let viewport_height = list_area.height.saturating_sub(2) as usize; // account for borders
+    let content_length = app.filtered_items.len();
+
+    // Calculate what items to show based on scroll offset
+    let visible_start = app.scroll_offset.min(content_length.saturating_sub(1));
+    let visible_end = (visible_start + viewport_height).min(content_length);
+
+    // Create list items only for visible range
     let mut list_items: Vec<ListItem> = Vec::new();
     let mut current_category = None;
 
     for (index, item) in app.filtered_items.iter().enumerate() {
+        // Skip items outside visible range
+        if index < visible_start || index >= visible_end {
+            continue;
+        }
+
         // Add category header if needed
         let item_category = item.kind.as_str();
         if current_category != Some(item_category) {
             current_category = Some(item_category);
 
-            // Add spacing before new category (except for first)
+            // Add spacing before new category (except for first visible item)
             if !list_items.is_empty() {
                 list_items.push(ListItem::new(Line::from("")));
             }
 
-            // Category header
+            // Category header - only show if this category has visible items
             let (category_name, category_icon, category_color) = match item.kind {
-                ItemKind::Password => ("🔐 PASSWORDS", "", c_badge_pwd()),
-                ItemKind::EnvVar => ("🌍 ENVIRONMENT VARIABLES", "", c_badge_env()),
-                ItemKind::Note => ("📝 NOTES", "", c_badge_note()),
-                ItemKind::ApiKey => ("🔑 API KEYS", "", c_badge_pwd()), // Or create c_badge_api()
-                ItemKind::SshKey => ("🔐 SSH KEYS", "", c_badge_pwd()),
-                ItemKind::Certificate => ("📜 CERTIFICATES", "", c_badge_pwd()),
-                ItemKind::Database => ("🗄️ DATABASES", "", c_badge_pwd()),
+                ItemKind::Password => (" PASSWORDS", "🔐", c_badge_pwd()),
+                ItemKind::EnvVar => (" ENVIRONMENT VARIABLES", "🌍", c_badge_env()),
+                ItemKind::Note => (" NOTES", "📝", c_badge_note()),
+                ItemKind::ApiKey => (" API KEYS", "🔑", c_badge_api()),
+                ItemKind::SshKey => (" SSH KEYS", "🔒", c_badge_ssh()),
+                ItemKind::Certificate => (" CERTIFICATES", "📜", c_badge_cert()),
+                ItemKind::Database => (" DATABASES", "🗄️", c_badge_db()),
             };
 
             let header_line = Line::from(vec![
@@ -661,29 +738,42 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
 
         // Regular item
         let (badge, badge_color) = match item.kind {
+            ItemKind::Password => ("🔐", c_badge_pwd()),
             ItemKind::EnvVar => ("🌍", c_badge_env()),
-            ItemKind::Note => ("📄", c_badge_note()),
-            ItemKind::ApiKey => ("🔑", c_badge_pwd()),
-            ItemKind::Certificate => ("📜", c_badge_pwd()),
-            ItemKind::Database => ("🗄️", c_badge_pwd()),
-            ItemKind::Password | ItemKind::SshKey => ("🔐", c_badge_pwd()),
+            ItemKind::Note => ("📝", c_badge_note()),
+            ItemKind::ApiKey => ("🔑", c_badge_api()),
+            ItemKind::SshKey => ("🔒", c_badge_ssh()),
+            ItemKind::Certificate => ("📜", c_badge_cert()),
+            ItemKind::Database => ("🗄️", c_badge_db()),
         };
 
-        // Enhanced item display with better formatting
+
         #[allow(clippy::expect_used)]
         let created_date = item
             .created_at
             .format(&time::format_description::parse("[year]-[month]-[day]").expect("Invalid date format"))
             .unwrap_or_else(|_| "unknown".to_string());
 
+        let content_width = chunks[0].width.saturating_sub(8) as usize;
+        let max_name_width = content_width.saturating_sub(20); // Conservative estimate for all fixed elements
+
+        let truncated_name = if max_name_width < 1 {
+            "…".to_string() // Show ellipsis if no room
+        } else {
+            truncate_text(&item.name, max_name_width.max(1))
+        };
+
+
+
         let item_line = Line::from(vec![
             Span::raw("    "), // Indentation for items under category
             Span::styled(format!("{badge} "), Style::default().fg(badge_color)),
-            Span::styled(&item.name, Style::default().fg(c_text()).add_modifier(Modifier::BOLD)),
+            Span::styled(truncated_name, Style::default().fg(c_text()).add_modifier(Modifier::BOLD)),
             Span::styled(format!(" ({created_date})"), Style::default().fg(c_text_dim())),
         ]);
 
-        // Check if this item is selected
+
+        // Highlight selected item
         let item_style = if app.selected == index {
             Style::default()
                 .bg(Color::Rgb(40, 46, 60))
@@ -696,8 +786,8 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         list_items.push(ListItem::new(item_line).style(item_style));
     }
 
-    // If no items, show empty state
-    if list_items.is_empty() {
+    // Show empty state if no items
+    if list_items.is_empty() && app.filtered_items.is_empty() {
         let empty_message = match app.view_mode {
             ViewMode::All => "No items in vault",
             ViewMode::Passwords => "No passwords stored",
@@ -706,7 +796,7 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         };
 
         list_items.push(ListItem::new(Line::from(vec![Span::styled(
-            format!("    📭 {empty_message}"),
+            format!("     {empty_message}"),
             Style::default().fg(c_text_dim()),
         )])));
     }
@@ -718,23 +808,52 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         app.items.len()
     );
 
-    let list = List::new(list_items).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(c_border()))
-            .style(Style::default().bg(c_bg_panel()))
-            .title(Span::styled(
-                &items_title,
-                Style::default().fg(c_accent()).add_modifier(Modifier::BOLD),
-            )),
-    );
+    let list_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(c_border()))
+        .style(Style::default().bg(c_bg_panel()))
+        .title(Span::styled(
+            &items_title,
+            Style::default().fg(c_accent()).add_modifier(Modifier::BOLD),
+        ));
 
-    // Note: We don't use stateful rendering since we handle selection manually
+    let list = List::new(list_items).block(list_block.clone());
     f.render_widget(list, chunks[0]);
 
+    // Create scrollbar
+    let mut scrollbar_state =
+        ratatui::widgets::ScrollbarState::new(content_length.max(1).saturating_sub(1))
+            .position(app.scroll_offset);
+
+    let scrollbar = ratatui::widgets::Scrollbar::new(
+        ratatui::widgets::ScrollbarOrientation::VerticalRight,
+    )
+        .begin_symbol(Some("↑"))
+        .end_symbol(Some("↓"))
+        .thumb_style(
+            Style::default()
+                .fg(c_accent())
+                .add_modifier(Modifier::BOLD)
+        )
+        .track_style(
+            Style::default()
+                .fg(c_text_dim())
+        );
+
+    let inner_area = list_block.inner(chunks[0]);
+    let scrollbar_area = Rect {
+        x: inner_area.x + inner_area.width.saturating_sub(1),
+        y: inner_area.y,
+        width: 1,
+        height: inner_area.height,
+    };
+    f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+
+
     // Enhanced help panel with category information
-    let (_, passwords, env_vars, notes) = app.get_item_counts();
+    let (_, passwords, env_vars, notes, api_keys, ssh_keys, certificates, databases) = app.get_item_counts();
+
 
     let help_lines = vec![
         Line::from(Span::styled(
@@ -754,6 +873,23 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             Span::styled("📝 ", Style::default().fg(c_badge_note())),
             Span::styled(format!("Notes ({notes})"), Style::default().fg(c_text())),
         ]),
+        Line::from(vec![
+            Span::styled("🔑 ", Style::default().fg(c_badge_api())),
+            Span::styled(format!("API Keys ({api_keys})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🔒 ", Style::default().fg(c_badge_ssh())),
+            Span::styled(format!("SSH Keys ({ssh_keys})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("📜 ", Style::default().fg(c_badge_cert())),
+            Span::styled(format!("Certificates ({certificates})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🗄️ ", Style::default().fg(c_badge_db())),
+            Span::styled(format!("Databases ({databases})"), Style::default().fg(c_text())),
+        ]),
+
         Line::default(),
         Line::from(Span::styled(
             "Actions",
@@ -868,8 +1004,9 @@ fn get_status_message_and_style(app: &App) -> (String, Style) {
         let context_message = match app.screen {
             Screen::Unlock => "Enter your master key to unlock the vault".to_string(),
             Screen::Main => {
-                let (total, passwords, env_vars, notes) = app.get_item_counts();
-                format!("{total} items ({passwords} passwords, {env_vars} env vars, {notes} notes)",)
+                format!(
+                    " {} items in vault",
+                    app.items.len())
             }
             Screen::AddItem => "Fill in the item details and press Enter to save".to_string(),
             Screen::ViewItem => "Viewing item details".to_string(),
