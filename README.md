@@ -31,6 +31,11 @@ and other secrets with strong cryptographic guarantees.
 </p>
 
 <p align="center">
+  <img src="images/add_item.png" alt="VisualVault's Settings Page" />
+  <span>Chamber's Add Item Dialog</span>
+</p>
+
+<p align="center">
   <img src="images/main.png" alt="VisualVault's Main Page" />
   <span>Chamber's Main Page</span>
 </p>
