@@ -72,7 +72,6 @@ const fn c_badge_db() -> Color {
     Color::Rgb(50, 205, 50) // Lime Green
 }
 
-
 fn truncate_text(text: &str, max_width: usize) -> String {
     if text.chars().count() <= max_width {
         text.to_string()
@@ -237,8 +236,6 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                 } else if app.selected == 0 {
                     app.scroll_offset = 0;
                 }
-
-
             }
             KeyCode::Up => {
                 if app.filtered_items.is_empty() {
@@ -251,14 +248,9 @@ fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) -> Result<bool> {
                     // Wrap to bottom
                     app.selected = app.filtered_items.len().saturating_sub(1);
                 }
-
-                // Update scroll offset to keep selected item visible
-                let viewport_height = 10; // You might want to calculate this based on terminal height
                 if app.selected < app.scroll_offset {
                     app.scroll_offset = app.selected;
                 }
-
-
             }
             KeyCode::Char('r') => {
                 app.refresh_items()?;
@@ -673,7 +665,6 @@ fn draw_unlock(f: &mut Frame, app: &App, body: Rect) {
     f.render_widget(p, area);
 }
 
-
 #[allow(clippy::too_many_lines)]
 fn draw_main(f: &mut Frame, app: &App, body: Rect) {
     let chunks = Layout::default()
@@ -747,7 +738,6 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             ItemKind::Database => ("🗄️", c_badge_db()),
         };
 
-
         #[allow(clippy::expect_used)]
         let created_date = item
             .created_at
@@ -763,15 +753,15 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             truncate_text(&item.name, max_name_width.max(1))
         };
 
-
-
         let item_line = Line::from(vec![
             Span::raw("    "), // Indentation for items under category
             Span::styled(format!("{badge} "), Style::default().fg(badge_color)),
-            Span::styled(truncated_name, Style::default().fg(c_text()).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                truncated_name,
+                Style::default().fg(c_text()).add_modifier(Modifier::BOLD),
+            ),
             Span::styled(format!(" ({created_date})"), Style::default().fg(c_text_dim())),
         ]);
-
 
         // Highlight selected item
         let item_style = if app.selected == index {
@@ -823,23 +813,13 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
 
     // Create scrollbar
     let mut scrollbar_state =
-        ratatui::widgets::ScrollbarState::new(content_length.max(1).saturating_sub(1))
-            .position(app.scroll_offset);
+        ratatui::widgets::ScrollbarState::new(content_length.max(1).saturating_sub(1)).position(app.scroll_offset);
 
-    let scrollbar = ratatui::widgets::Scrollbar::new(
-        ratatui::widgets::ScrollbarOrientation::VerticalRight,
-    )
+    let scrollbar = ratatui::widgets::Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight)
         .begin_symbol(Some("↑"))
         .end_symbol(Some("↓"))
-        .thumb_style(
-            Style::default()
-                .fg(c_accent())
-                .add_modifier(Modifier::BOLD)
-        )
-        .track_style(
-            Style::default()
-                .fg(c_text_dim())
-        );
+        .thumb_style(Style::default().fg(c_accent()).add_modifier(Modifier::BOLD))
+        .track_style(Style::default().fg(c_text_dim()));
 
     let inner_area = list_block.inner(chunks[0]);
     let scrollbar_area = Rect {
@@ -850,10 +830,8 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
     };
     f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
 
-
     // Enhanced help panel with category information
     let (_, passwords, env_vars, notes, api_keys, ssh_keys, certificates, databases) = app.get_item_counts();
-
 
     let help_lines = vec![
         Line::from(Span::styled(
@@ -889,7 +867,6 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             Span::styled("🗄️ ", Style::default().fg(c_badge_db())),
             Span::styled(format!("Databases ({databases})"), Style::default().fg(c_text())),
         ]),
-
         Line::default(),
         Line::from(Span::styled(
             "Actions",
@@ -1004,9 +981,7 @@ fn get_status_message_and_style(app: &App) -> (String, Style) {
         let context_message = match app.screen {
             Screen::Unlock => "Enter your master key to unlock the vault".to_string(),
             Screen::Main => {
-                format!(
-                    " {} items in vault",
-                    app.items.len())
+                format!(" {} items in vault", app.items.len())
             }
             Screen::AddItem => "Fill in the item details and press Enter to save".to_string(),
             Screen::ViewItem => "Viewing item details".to_string(),

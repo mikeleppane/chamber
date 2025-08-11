@@ -402,12 +402,28 @@ impl App {
         let notes = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Note)).count();
         let api_keys = self.items.iter().filter(|i| matches!(i.kind, ItemKind::ApiKey)).count();
         let ssh_keys = self.items.iter().filter(|i| matches!(i.kind, ItemKind::SshKey)).count();
-        let certificates = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Certificate)).count();
-        let databases = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Database)).count();
+        let certificates = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Certificate))
+            .count();
+        let databases = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Database))
+            .count();
 
-        (self.items.len(), passwords, env_vars, notes, api_keys, ssh_keys, certificates, databases)
+        (
+            self.items.len(),
+            passwords,
+            env_vars,
+            notes,
+            api_keys,
+            ssh_keys,
+            certificates,
+            databases,
+        )
     }
-
 
     /// Adds a new item to the vault and handles the associated UI and status updates.
     ///
