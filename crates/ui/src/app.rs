@@ -197,11 +197,6 @@ impl App {
     ///
     /// # Errors
     /// Returns an error if the vault cannot be opened or created successfully.
-    ///
-    /// # Example
-    /// ```
-    /// let instance = MyStruct::new()?;
-    /// ```
     pub fn new() -> Result<Self> {
         let vault = Vault::open_or_create(None)?;
         let master_mode_is_setup = !vault.is_initialized();
@@ -483,17 +478,6 @@ impl App {
     /// # Notes
     /// - Resets both single-line (`add_value`) and multi-line (`add_value_textarea`) value fields upon successful addition.
     /// - Automatically trims leading and trailing whitespace from the item name.
-    ///
-    /// # Example
-    /// ```rust
-    /// let mut app = App::default();
-    /// app.add_kind_idx = 0; // Adding a Password item
-    /// app.add_name = "My Password".into();
-    /// app.add_value_textarea = TextArea::from("SuperSecretPassword123");
-    /// let result = app.add_item();
-    /// assert!(result.is_ok());
-    /// assert!(app.error.is_none());
-    /// ```
     pub fn add_item(&mut self) -> Result<()> {
         let kind = match self.add_kind_idx {
             0 => ItemKind::Password,
@@ -558,13 +542,6 @@ impl App {
     /// - Retrieving the selected item fails.
     /// - Deleting the item from the vault fails.
     /// - Refreshing the item list fails.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// let mut manager = ItemManager::new();
-    /// manager.delete_selected()?;
-    /// ```
     pub fn delete_selected(&mut self) -> Result<()> {
         if let Some(item) = self.get_selected_item() {
             let item_id = item.id;
@@ -602,14 +579,6 @@ impl App {
     ///   - The new master key and confirmation key do not match.
     ///   - The new master key fails the strength validation.
     /// - If the `vault.change_master_key` method returns an error, it will propagate as a `Result::Err`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let mut manager = KeyManager::new();
-    /// manager.ck_current = "old_master_key".into();
-    /// manager.ck_new = "new_master_key".into();
-    ///
     pub fn change_master(&mut self) -> Result<()> {
         if self.ck_current.is_empty() || self.ck_new.is_empty() || self.ck_confirm.is_empty() {
             self.error = Some("Please fill out all fields.".into());
@@ -666,13 +635,6 @@ impl App {
     /// - `get_selected_item`: Retrieves the currently selected item, returning an option.
     /// - `set_status`: Updates the application's status message and type.
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// if let Err(e) = app.copy_selected() {
-    ///     eprintln!("Error: {}", e);
-    /// }
-    /// ```
     pub fn copy_selected(&mut self) -> Result<()> {
         if let Some(item) = self.get_selected_item() {
             let mut clipboard = arboard::Clipboard::new().map_err(|e| anyhow!("Failed to access clipboard: {}", e))?;
@@ -795,14 +757,6 @@ impl App {
     ///
     /// * If a password is successfully copied to the clipboard, the `self.error` field is set with a success message.
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// if let Err(e) = my_instance.copy_generated_password() {
-    ///     eprintln!("Error copying password to clipboard: {}", e);
-    /// }
-    /// ```
-    ///
     /// # Dependencies
     ///
     /// This function makes use of the `arboard` crate for clipboard access and text manipulation.
@@ -866,21 +820,6 @@ impl App {
     /// ### Returns
     /// - `Ok(())` if the operation completes successfully (even if some items were skipped).
     /// - `Err` if a file path normalization or file operation fails during the execution.
-    ///
-    /// ### Examples
-    /// ```rust
-    /// // Example 1: Exporting items
-    /// manager.ie_mode = ImportExportMode::Export;
-    /// manager.ie_path = "/path/to/output.json".to_string();
-    /// manager.ie_format_idx = 0; // JSON format
-    /// manager.execute_import_export().unwrap();
-    ///
-    /// // Example 2: Importing items
-    /// manager.ie_mode = ImportExportMode::Import;
-    /// manager.ie_path = "/path/to/input.csv".to_string();
-    /// manager.ie_format_idx = 1; // CSV format
-    /// manager.execute_import_export().unwrap();
-    /// ```
     ///
     /// ### Preconditions
     /// - `self.ie_path` must be set to a valid file path.
@@ -1034,14 +973,6 @@ impl App {
     /// - Appends the clipboard content to the current `add_value` field.
     /// - Sets a success status message indicating the paste operation completed.
     /// - If clipboard is empty or contains no text, shows a warning message.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// if let Err(e) = app.paste_to_add_value() {
-    ///     eprintln!("Error pasting from clipboard: {}", e);
-    /// }
-    /// ```
     pub fn paste_to_add_value(&mut self) -> Result<()> {
         if let Ok(mut clipboard) = arboard::Clipboard::new() {
             if let Ok(text) = clipboard.get_text() {

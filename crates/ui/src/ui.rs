@@ -108,15 +108,6 @@ fn truncate_text(text: &str, max_width: usize) -> String {
 /// * If the terminal fails to clear its contents or render the UI.
 /// * If there is an error reading input events or processing them.
 ///
-/// # Example
-///
-/// ```no_run
-/// let mut app = App::new();
-/// if let Err(e) = run_app(&mut app) {
-///     eprintln!("Error: {}", e);
-/// }
-/// ```
-///
 /// # Notes
 ///
 /// * The terminal clearing and rendering are achieved using the `Terminal` and
@@ -1338,14 +1329,11 @@ fn draw_add_item(f: &mut Frame, app: &App) {
                     ),
                     Span::styled(" to save", Style::default().fg(c_text_dim())),
                 ]),
-                Line::from(vec![Span::styled(
-                    "Press Ctrl+v to paste content from clipboard",
-                    Style::default().fg(c_text_dim()),
-                )]),
-                Line::from(vec![Span::styled(
-                    "Line numbers shown on left",
-                    Style::default().fg(c_text_dim()),
-                )]),
+                Line::from(vec![
+                    Span::styled("Press ", Style::default().fg(c_text_dim())),
+                    Span::styled("Ctrl+v", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+                    Span::styled(" to paste content from clipboard, ", Style::default().fg(c_text_dim())),
+                ]),
             ]
         }
     };

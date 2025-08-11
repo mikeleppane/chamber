@@ -88,18 +88,6 @@ impl From<&Item> for ExportedItem {
 /// * An I/O error occurs while writing to the file.
 /// * Serialization to the chosen export format fails.
 ///
-/// # Examples
-///
-/// ```
-/// let items = vec![Item::new("Item1"), Item::new("Item2")];
-/// let output_path = Path::new("output.json");
-/// let result = export_items(&items, &ExportFormat::Json, output_path);
-///
-/// if result.is_err() {
-///     eprintln!("Failed to export items");
-/// }
-/// ```
-///
 /// # Note
 ///
 /// Ensure that the directory specified in `output_path` exists and has write permissions before calling this function.
@@ -176,22 +164,6 @@ fn export_chamber_backup(items: &[Item], output_path: &Path) -> Result<()> {
 /// * `ExportFormat::Csv` - Calls the `import_csv` function to handle CSV files.
 /// * `ExportFormat::ChamberBackup` - Calls the `import_chamber_backup` function to handle Chamber
 ///   Backup files.
-///
-/// # Examples
-///
-/// ```
-/// use std::path::Path;
-/// use my_crate::{import_items, ExportFormat};
-///
-/// let path = Path::new("items.json");
-/// let format = ExportFormat::Json;
-///
-/// let result = import_items(path, &format);
-/// match result {
-///     Ok(items) => println!("Successfully imported {} items.", items.len()),
-///     Err(e) => eprintln!("Failed to import items: {:?}", e),
-/// }
-/// ```
 ///
 /// # Errors
 ///

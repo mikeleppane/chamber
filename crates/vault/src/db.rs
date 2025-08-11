@@ -27,14 +27,6 @@ impl Db {
     /// This function will return an error if:
     /// * The database connection cannot be established (e.g., invalid path, file issues).
     /// * The migration process fails.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use std::path::Path;
-    ///
-    /// let db_path = Path::new("my_database.db");
-    /// let db = MyDatabase::open(db_path)?;
-    /// ```
     pub fn open(path: &std::path::Path) -> Result<Self> {
         let conn = Connection::open(path)?;
         let db = Self { conn };
@@ -86,16 +78,6 @@ impl Db {
     /// # Errors
     /// This function returns an error if there is an issue executing the SQL query,
     /// such as a database connection problem or an issue with the `meta` table.
-    ///
-    /// # Example
-    /// ```rust
-    /// let is_empty = my_instance.is_meta_empty()?;
-    /// if is_empty {
-    ///     println!("The meta table is empty.");
-    /// } else {
-    ///     println!("The meta table is not empty.");
-    /// }
-    /// ```
     pub fn is_meta_empty(&self) -> Result<bool> {
         let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM meta", [], |r| r.get(0))?;
         Ok(count == 0)
@@ -126,16 +108,6 @@ impl Db {
     /// Returns an error if:
     /// * Serialization of `kdf` or `wrapped` fails.
     /// * Any SQL operation (DELETE or INSERT) fails.
-    ///
-    /// # Example
-    /// ```rust
-    /// let kdf_params = KdfParams::new(...);
-    /// let wrapped_key = WrappedVaultKey::new(...);
-    /// let verifier = vec![0x12, 0x34, 0x56, 0x78];
-    ///
-    /// your_struct.write_meta(&kdf_params, &wrapped_key, &verifier)
-    ///     .expect("Failed to write metadata to the database");
-    /// ```
     ///
     /// # Notes
     /// * This function assumes that the `meta` table already exists and has the following schema:
@@ -182,17 +154,6 @@ impl Db {
     /// - `rusqlite` for database interaction.
     /// - `serde_json` for JSON deserialization.
     /// - `anyhow` for error handling.
-    ///
-    /// # Example
-    /// ```rust
-    /// if let Some((kdf_params, wrapped_key, verifier)) = db.read_meta()? {
-    ///     println!("KDF Params: {:?}", kdf_params);
-    ///     println!("Wrapped Key: {:?}", wrapped_key);
-    ///     println!("Verifier: {:?}", verifier);
-    /// } else {
-    ///     println!("No metadata record found.");
-    /// }
-    /// ```
     pub fn read_meta(&self) -> Result<Option<(KdfParams, WrappedVaultKey, Vec<u8>)>> {
         // Fetch raw columns without JSON parsing inside the row-mapper
         let row = self
@@ -244,26 +205,6 @@ impl Db {
     /// - Returns an error if:
     ///   - The current timestamp could not be formatted as RFC 3339.
     ///   - There is a database insertion failure for any reason (e.g., constraint violation, I/O error).
-    ///
-    /// # Example
-    /// ```rust
-    /// use anyhow::Result;
-    ///
-    /// fn main() -> Result<()> {
-    ///     let db = Database::new(); // Assume `Database` is a struct with a `conn` field.
-    ///     let name = "my_item";
-    ///     let kind = "example";
-    ///     let nonce = b"random_nonce";
-    ///     let ciphertext = b"encrypted_data";
-    ///
-    ///     match db.insert_item(name, kind, nonce, ciphertext) {
-    ///         Ok(_) => println!("Item successfully inserted."),
-    ///         Err(e) => eprintln!("Failed to insert item: {}", e),
-    ///     }
-    ///
-    ///     Ok(())
-    /// }
-    /// ```
     pub fn insert_item(&self, name: &str, kind: &str, nonce: &[u8], ciphertext: &[u8]) -> Result<()> {
         let now = OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339)?;
         match self.conn.execute(
@@ -304,22 +245,6 @@ impl Db {
     /// - If preparing the SQL statement fails.
     /// - If executing the query or mapping rows fails.
     /// - If the `created_at` or `updated_at` fields fail to parse from an RFC 3339 formatted string.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let result = db.list_items();
-    /// match result {
-    ///     Ok(items) => {
-    ///         for item in items {
-    ///             println!("Item: {:?}", item);
-    ///         }
-    ///     }
-    ///     Err(e) => {
-    ///         eprintln!("Error retrieving items: {}", e);
-    ///     }
-    /// }
-    /// ```
     ///
     /// # Dependencies
     ///
@@ -379,18 +304,6 @@ impl Db {
     /// This function will return an error if:
     /// * The connection to the database fails.
     /// * The SQL execution fails.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let db = Database::new(); // Assuming `Database` is the implementation with `delete_item`
-    /// let result = db.delete_item(42);
-    ///
-    /// match result {
-    ///     Ok(_) => println!("Item successfully deleted."),
-    ///     Err(e) => println!("Failed to delete item: {}", e),
-    /// }
-    /// ```
     pub fn delete_item(&self, id: i64) -> Result<()> {
         self.conn.execute("DELETE FROM items WHERE id = ?", params![id])?;
         Ok(())
@@ -415,15 +328,6 @@ impl Db {
     /// # Errors
     /// - Returns an error if the timestamp formatting fails.
     /// - Returns an error if the SQL execution fails.
-    ///
-    /// # Example
-    /// ```rust
-    /// let result = db.update_item(42, &nonce_bytes, &ciphertext_bytes);
-    /// match result {
-    ///     Ok(()) => println!("Item updated successfully."),
-    ///     Err(e) => eprintln!("Failed to update item: {}", e),
-    /// }
-    /// ```
     pub fn update_item(&self, id: i64, nonce: &[u8], ciphertext: &[u8]) -> Result<()> {
         let now = OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339)?;
         self.conn.execute(

@@ -29,11 +29,6 @@ impl KeyMaterial {
     ///
     /// The panic occurs at the `expect` call if `getrandom::fill` does not succeed
     /// in generating the random numbers.
-    ///
-    /// # Example
-    /// ```
-    /// let random_instance = YourStruct::random();
-    /// ```
     #[allow(clippy::expect_used)]
     #[must_use]
     pub fn random() -> Self {
@@ -84,13 +79,6 @@ impl KdfParams {
     /// - `#[allow(clippy::expect_used)]`: Allows the `expect` function to be used without Clippy lint warnings.
     /// - `#[must_use]`: Indicates that the result of this function must be used; otherwise,
     ///   the compiler will issue a warning.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let secure_config = MyStruct::default_secure();
-    /// println!("{:?}", secure_config);
-    /// ```
     #[allow(clippy::expect_used)]
     #[must_use]
     pub fn default_secure() -> Self {
@@ -132,27 +120,6 @@ impl KdfParams {
 /// This function will return an error in the following scenarios:
 /// * If the KDF parameters cannot be created (`Params::new` fails).
 /// * If the hash computation with Argon2 fails (`hash_password_into` fails).
-///
-/// # Example
-///
-/// ```rust
-/// use some_crate::{derive_key, KdfParams, KeyMaterial};
-///
-/// let master_password = "super_secure_password";
-/// let kdf_params = KdfParams {
-///     m_cost_kib: 65536,  // Memory usage in KiB (e.g., 65536 KiB = 64 MiB)
-///     t_cost: 3,          // Number of iterations
-///     p_cost: 4,          // Degree of parallelism
-///     salt: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // Example salt
-/// };
-///
-/// let derived_key = derive_key(master_password, &kdf_params);
-///
-/// match derived_key {
-///     Ok(key_material) => println!("Derived key: {:?}", key_material),
-///     Err(e) => eprintln!("Error: {e}"),
-/// }
-/// ```
 pub fn derive_key(master: &str, kdf: &KdfParams) -> Result<KeyMaterial> {
     let argon2 = Argon2::new(
         Algorithm::Argon2id,
@@ -205,23 +172,6 @@ pub struct WrappedVaultKey {
 /// - `XChaCha20Poly1305` for the encryption process.
 /// - `HmacSha256` from the `Mac` trait for generating the authentication tag.
 /// - `getrandom` for generating a secure random nonce.
-///
-/// # Example
-/// ```rust
-/// use anyhow::Result;
-/// use your_crate::{wrap_vault_key, KeyMaterial, WrappedVaultKey};
-///
-/// # fn main() -> Result<()> {
-/// let master_derived = KeyMaterial([0u8; 32]);
-/// let vault_key = KeyMaterial([1u8; 32]);
-///
-/// let (wrapped, tag) = wrap_vault_key(&master_derived, &vault_key)?;
-///
-/// // `wrapped` contains the encrypted payload and nonce.
-/// // `tag` is the HMAC-SHA256 verification tag.
-/// # Ok(())
-/// # }
-/// ```
 pub fn wrap_vault_key(master_derived: &KeyMaterial, vault_key: &KeyMaterial) -> Result<(WrappedVaultKey, Vec<u8>)> {
     let aead = XChaCha20Poly1305::new((&master_derived.0).into());
     let mut nonce = [0u8; 24];
@@ -273,23 +223,6 @@ pub fn wrap_vault_key(master_derived: &KeyMaterial, vault_key: &KeyMaterial) -> 
 /// 2. Constructs a nonce using the `wrapped` data.
 /// 3. Uses the AEAD cipher to decrypt the provided ciphertext into plaintext.
 /// 4. Extracts 32 bytes from the plaintext to construct the unwrapped key.
-///
-/// # Example
-/// ```
-/// // Assuming proper definitions for KeyMaterial and WrappedVaultKey.
-/// let master_key = KeyMaterial::from([0u8; 32]); // Example master derived key.
-/// let wrapped_key = WrappedVaultKey {
-///     nonce: [0u8; 24],
-///     ciphertext: vec![0xef; 48],
-/// }; // Example wrapped key.
-/// let verifier = Some(&[0x12, 0x34, 0x56, 0x78][..]); // Example verifier.
-///
-/// let result = unwrap_vault_key(&master_key, &wrapped_key, verifier);
-/// match result {
-///     Ok(key) => println!("Successfully unwrapped key: {:?}", key),
-///     Err(e) => eprintln!("Failed to unwrap key: {}", e),
-/// }
-/// ```
 pub fn unwrap_vault_key(
     master_derived: &KeyMaterial,
     wrapped: &WrappedVaultKey,
@@ -332,27 +265,6 @@ pub fn unwrap_vault_key(
 ///
 /// - Returns an error if random nonce generation fails using the `getrandom` crate.
 /// - Returns an error if the encryption process fails (e.g., due to an internal library failure).
-///
-/// # Example
-///
-/// ```
-/// use your_crate_name::aead_encrypt;
-/// use your_crate_name::KeyMaterial;
-///
-/// let key = KeyMaterial::new([0u8; 32]); // Replace with your key initialization logic
-/// let plaintext = b"Hello, world!";
-/// let associated_data = b"example";
-///
-/// match aead_encrypt(&key, plaintext, associated_data) {
-///     Ok((nonce, ciphertext)) => {
-///         println!("Nonce: {:?}", nonce);
-///         println!("Ciphertext: {:?}", ciphertext);
-///     }
-///     Err(e) => {
-///         eprintln!("Encryption failed: {}", e);
-///     }
-/// }
-/// ```
 ///
 /// # Security Considerations
 ///
@@ -400,23 +312,6 @@ pub fn aead_encrypt(vault_key: &KeyMaterial, plaintext: &[u8], ad: &[u8]) -> Res
 ///
 /// # Errors
 /// - Returns an error if the decryption fails, such as in cases of an invalid key, mismatched nonce or associated data, or corrupted ciphertext.
-///
-/// # Example
-/// ```
-/// use my_crate::aead_decrypt;
-/// use my_crate::KeyMaterial;
-///
-/// let key = KeyMaterial::new([0u8; 32]); // Replace with an actual key
-/// let nonce = vec![0u8; 24];             // Replace with actual nonce
-/// let ciphertext = vec![255u8; 16];      // Replace with actual ciphertext
-/// let associated_data = b"example";      // Associated data used during encryption
-///
-/// // Attempt decryption
-/// match aead_decrypt(&key, &nonce, &ciphertext, associated_data) {
-///     Ok(plaintext) => println!("Decrypted plaintext: {:?}", plaintext),
-///     Err(err) => eprintln!("Decryption failed: {}", err),
-/// }
-/// ```
 ///
 /// # Notes
 /// - The `XChaCha20Poly1305` cipher ensures both confidentiality and authenticity of the ciphertext and associated data.

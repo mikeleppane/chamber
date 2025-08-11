@@ -133,13 +133,6 @@ impl PasswordConfig {
     ///   - No character sets are enabled (`"At least one character set must be enabled"`).
     ///   - No valid characters are available (`"No valid characters available"`).
     ///
-    /// # Examples
-    /// ```
-    /// // Assuming `self` is a struct with valid configuration:
-    /// let password = self.generate()?;
-    /// println!("Generated password: {}", password);
-    /// ```
-    ///
     /// # Notes
     /// - The `self.is_valid()` method is expected to verify whether at least one character set is enabled.
     /// - The `self.get_character_sets()` method should return a collection of strings, each containing
@@ -199,14 +192,7 @@ impl PasswordConfig {
 ///
 /// Returns an `anyhow::Result<String>`:
 /// - `Ok(String)` containing the generated password if successful.
-/// - `Err(anyhow::Error)` if an error occurs during password generation.
-///
-/// # Example
-///
-/// ```
-/// let password = generate_simple_password(12).unwrap();
-/// println!("Generated password: {}", password);
-/// ```
+/// - `Err(anyhow::Error)` if an error occurs during password generation.`
 ///
 /// # Errors
 ///
@@ -235,17 +221,6 @@ pub fn generate_simple_password(length: usize) -> anyhow::Result<String> {
 /// # Behavior
 /// - The generated password includes alphanumeric characters as well as symbols for added complexity.
 /// - The function explicitly permits the inclusion of ambiguous characters (e.g., characters that may be difficult to distinguish visually).
-///
-/// # Example
-/// ```rust
-/// use anyhow::Result;
-///
-/// fn main() -> Result<()> {
-///     let password = generate_complex_password(12)?;
-///     println!("Generated Password: {}", password);
-///     Ok(())
-/// }
-/// ```
 ///
 /// # Errors
 /// - The function returns an error if there is a failure in the password generation process.
@@ -291,13 +266,6 @@ pub fn generate_complex_password(length: usize) -> anyhow::Result<String> {
 /// - The function uses `expect` to ensure that digit selection from the allowed range
 ///   (0–9) succeeds. Panics will only occur if the internal logic of random digit
 ///   generation fails (highly unlikely).
-///
-/// # Examples
-/// ```
-/// # use your_crate::generate_memorable_password;
-/// let password = generate_memorable_password();
-/// println!("Generated password: {}", password);
-/// ```
 ///
 /// # Notes
 /// - Designed for use cases requiring user-friendly yet secure passphrases.

@@ -129,18 +129,6 @@ impl Vault {
     /// This function returns an error if:
     /// * Obtaining the default database path via `default_db_path` fails.
     /// * Opening the database at the specified or default path fails.
-    ///
-    /// # Examples
-    /// ```
-    /// # use std::path::Path;
-    /// # use some_crate::YourDatabaseType;
-    /// // Open or create a database using the default path:
-    /// let db_instance = YourDatabaseType::open_or_create(None).expect("Failed to open or create DB");
-    ///
-    /// // Open or create a database at a specific path:
-    /// let db_path = Path::new("/custom/db/path");
-    /// let db_instance = YourDatabaseType::open_or_create(Some(db_path)).expect("Failed to open or create DB");
-    /// ```
     pub fn open_or_create(path: Option<&Path>) -> Result<Self> {
         let db_path = match path {
             Some(p) => p.to_path_buf(),
@@ -193,13 +181,6 @@ impl Vault {
     ///   - The vault key wrapping fails.
     ///   - Writing the required metadata to the database fails.
     /// - Errors are returned as a `Result::Err`, allowing the caller to handle the failure.
-    ///
-    /// # Example
-    /// ```rust
-    /// let mut storage = Storage::new();
-    /// let master_key = "secure-master-key";
-    /// storage.initialize(master_key).expect("Failed to initialize storage");
-    /// ```
     pub fn initialize(&mut self, master: &str) -> Result<()> {
         if self.is_initialized() {
             return Ok(());
@@ -278,20 +259,6 @@ impl Vault {
     ///   - The plaintext fails UTF-8 validation.
     ///   - An invalid `ItemKind` is provided.
     ///
-    /// # Example
-    /// ```rust
-    /// match instance.list_items() {
-    ///     Ok(items) => {
-    ///         for item in items {
-    ///             println!("Item: {:?}", item);
-    ///         }
-    ///     }
-    ///     Err(err) => {
-    ///         eprintln!("Error retrieving items: {:?}", err);
-    ///     }
-    /// }
-    /// ```
-    ///
     /// # Dependencies
     /// - `aead_decrypt`: A function used to decrypt the encrypted data.
     /// - `String::from_utf8`: Used to convert decrypted data into a String.
@@ -334,16 +301,6 @@ impl Vault {
     ///
     /// # Errors
     /// This function will return an error if the call to `self.list_items()` fails.
-    ///
-    /// # Examples
-    /// ```
-    /// let item_name = "example_item";
-    /// if let Ok(Some(item)) = instance.get_item_by_name(item_name) {
-    ///     println!("Found item: {:?}", item);
-    /// } else {
-    ///     println!("Item not found");
-    /// }
-    /// ```
     pub fn get_item_by_name(&self, name: &str) -> Result<Option<Item>> {
         let items = self.list_items()?;
         Ok(items.into_iter().find(|i| i.name == name))
@@ -371,21 +328,6 @@ impl Vault {
     /// - If the struct's `key` field is `None`, indicating it is locked.
     /// - If encryption fails for any reason.
     /// - If the database insertion fails.
-    ///
-    /// # Examples
-    /// ```rust
-    /// let mut store = KeyValueStore::new();
-    /// let item = NewItem {
-    ///     name: "example_item".to_string(),
-    ///     kind: "text".to_string(),
-    ///     value: "Example value".to_string(),
-    /// };
-    /// store.unlock("encryption_key");
-    /// match store.create_item(&item) {
-    ///     Ok(_) => println!("Item created successfully"),
-    ///     Err(e) => eprintln!("Failed to create item: {}", e),
-    /// }
-    /// ```
     pub fn create_item(&mut self, item: &NewItem) -> Result<()> {
         let vk = self.key.as_ref().ok_or_else(|| anyhow!("Locked"))?;
         let nonce_cipher = aead_encrypt(
@@ -410,12 +352,6 @@ impl Vault {
     /// This function will return an error if:
     /// - The item with the specified ID does not exist.
     /// - There is a failure in the underlying database operation.
-    ///
-    /// # Examples
-    /// ```
-    /// let mut app = MyApp::new();
-    /// app.delete_item(42)?;
-    /// ```
     pub fn delete_item(&mut self, id: i64) -> Result<()> {
         self.db.delete_item(id)
     }
@@ -459,17 +395,6 @@ impl Vault {
     /// * Returns an error if the `current_master` key fails verification or cannot unwrap the vault key.
     /// * Returns an error for any issues in key operations (e.g., deriving, wrapping, or unwrapping).
     /// * Returns an error if writing the updated metadata to the database fails.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let mut vault = Vault::new(database);
-    /// if vault.change_master_key("current_key", "new_key").is_ok() {
-    ///     println!("Master key changed successfully.");
-    /// } else {
-    ///     println!("Failed to change master key.");
-    /// }
-    /// ```
     ///
     /// # Notes
     ///
@@ -523,18 +448,6 @@ impl Vault {
     /// - If the encryption key is missing, an `anyhow!("Locked")` error is returned.
     /// - If the item is not found, an `anyhow!("Item not found")` error is returned.
     /// - Any failures during encryption or database operations propagate as errors.
-    ///
-    /// # Example
-    /// ```rust
-    /// let mut manager = ItemManager::new(); // Assume ItemManager is properly instantiated.
-    /// manager.key = Some(encryption_key); // Supply encryption key.
-    ///
-    /// if let Err(e) = manager.update_item(42, "New Value") {
-    ///     eprintln!("Failed to update item: {:?}", e);
-    /// } else {
-    ///     println!("Item successfully updated.");
-    /// }
-    /// ```
     pub fn update_item(&mut self, id: i64, new_value: &str) -> Result<()> {
         let vk = self.key.as_ref().ok_or_else(|| anyhow!("Locked"))?;
 
