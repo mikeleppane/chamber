@@ -706,4 +706,474 @@ mod tests {
         assert!(has_digit);
         assert!(has_symbol);
     }
+
+    #[test]
+    fn test_complex_password() {
+        let password = generate_complex_password(16).unwrap();
+        assert_eq!(password.len(), 16);
+
+        // Complex passwords should include ambiguous characters when exclude_ambiguous is false
+        // Test with a larger sample to increase probability
+        let large_password = generate_complex_password(100).unwrap();
+        let ambiguous = "0O1lI";
+        let has_ambiguous = large_password.chars().any(|c| ambiguous.contains(c));
+        assert!(has_ambiguous, "Complex password should include ambiguous characters");
+    }
+
+    #[test]
+    fn test_complex_password_different_lengths() {
+        for length in [4, 8, 16, 32, 64] {
+            let password = generate_complex_password(length).unwrap();
+            assert_eq!(password.len(), length);
+            assert!(!password.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_is_valid_method() {
+        // Test valid configurations
+        let valid_configs = [
+            PasswordConfig::new(),
+            PasswordConfig::new()
+                .with_uppercase(true)
+                .with_lowercase(false)
+                .with_digits(false)
+                .with_symbols(false),
+            PasswordConfig::new()
+                .with_uppercase(false)
+                .with_lowercase(true)
+                .with_digits(false)
+                .with_symbols(false),
+            PasswordConfig::new()
+                .with_uppercase(false)
+                .with_lowercase(false)
+                .with_digits(true)
+                .with_symbols(false),
+            PasswordConfig::new()
+                .with_uppercase(false)
+                .with_lowercase(false)
+                .with_digits(false)
+                .with_symbols(true),
+        ];
+
+        for config in valid_configs {
+            assert!(config.is_valid(), "Configuration should be valid: {config:?}");
+        }
+
+        // Test invalid configuration
+        let invalid_config = PasswordConfig::new()
+            .with_uppercase(false)
+            .with_lowercase(false)
+            .with_digits(false)
+            .with_symbols(false);
+        assert!(
+            !invalid_config.is_valid(),
+            "Configuration with no character sets should be invalid"
+        );
+    }
+
+    #[test]
+    fn test_length_clamping_upper_bound() {
+        let config = PasswordConfig::new().with_length(200); // Above 128
+        let password = config.generate().unwrap();
+        assert_eq!(password.len(), 128); // Should be clamped to 128
+    }
+
+    #[test]
+    fn test_length_clamping_comprehensive() {
+        let test_cases = [
+            (0, 4),      // Below minimum
+            (1, 4),      // Below minimum
+            (3, 4),      // Below minimum
+            (4, 4),      // Minimum
+            (10, 10),    // Normal
+            (64, 64),    // Normal
+            (128, 128),  // Maximum
+            (150, 128),  // Above maximum
+            (1000, 128), // Way above maximum
+        ];
+
+        for (input, expected) in test_cases {
+            let config = PasswordConfig::new().with_length(input);
+            assert_eq!(
+                config.length, expected,
+                "Length {input} should be clamped to {expected}"
+            );
+
+            let password = config.generate().unwrap();
+            assert_eq!(password.len(), expected);
+        }
+    }
+
+    #[test]
+    fn test_builder_method_chaining_comprehensive() {
+        let config = PasswordConfig::new()
+            .with_length(24)
+            .with_uppercase(false)
+            .with_lowercase(true)
+            .with_digits(true)
+            .with_symbols(false)
+            .with_exclude_ambiguous(false);
+
+        let password = config.generate().unwrap();
+        assert_eq!(password.len(), 24);
+
+        // Should only have lowercase letters and digits
+        assert!(password.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()));
+        assert!(password.chars().any(|c| c.is_ascii_lowercase()));
+        assert!(password.chars().any(|c| c.is_ascii_digit()));
+        assert!(!password.chars().any(|c| c.is_ascii_uppercase()));
+        assert!(!password.chars().any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c)));
+    }
+
+    #[test]
+    fn test_builder_method_overriding() {
+        let config = PasswordConfig::new()
+            .with_length(10)
+            .with_length(20) // Override previous setting
+            .with_symbols(true)
+            .with_symbols(false); // Override previous setting
+
+        let password = config.generate().unwrap();
+        assert_eq!(password.len(), 20); // Should use the last length setting
+        assert!(!password.chars().any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c))); // Should not have symbols
+    }
+
+    #[test]
+    fn test_specific_ambiguous_character_exclusion() {
+        let config = PasswordConfig::new()
+            .with_length(200) // Large sample
+            .with_exclude_ambiguous(true);
+
+        let password = config.generate().unwrap();
+
+        // Test specific ambiguous characters are excluded
+        let ambiguous_chars = ['0', 'O', '1', 'l', 'I'];
+        for ch in ambiguous_chars {
+            assert!(
+                !password.contains(ch),
+                "Password should not contain ambiguous character '{ch}'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_specific_ambiguous_character_inclusion() {
+        let config = PasswordConfig::new()
+            .with_length(500) // Very large sample to ensure we get ambiguous chars
+            .with_exclude_ambiguous(false);
+
+        let password = config.generate().unwrap();
+
+        // With a very large sample, we should get at least some ambiguous characters
+        let ambiguous_chars = ['0', 'O', '1', 'l', 'I'];
+        let has_any_ambiguous = ambiguous_chars.iter().any(|&ch| password.contains(ch));
+        assert!(
+            has_any_ambiguous,
+            "Large password should contain at least some ambiguous characters"
+        );
+    }
+
+    #[test]
+    fn test_character_set_exact_contents() {
+        // Test that we get exactly the expected characters for each set
+        let test_cases = [
+            // (config, expected_chars, forbidden_chars)
+            (
+                PasswordConfig::new()
+                    .with_uppercase(true)
+                    .with_lowercase(false)
+                    .with_digits(false)
+                    .with_symbols(false)
+                    .with_exclude_ambiguous(true),
+                "ABCDEFGHJKLMNPQRSTUVWXYZ", // Excludes I, O
+                "IO0123456789!@#$%^&*()_+-=[]{}|;:,.<>?abcdefghijklmnopqrstuvwxyz",
+            ),
+            (
+                PasswordConfig::new()
+                    .with_uppercase(false)
+                    .with_lowercase(true)
+                    .with_digits(false)
+                    .with_symbols(false)
+                    .with_exclude_ambiguous(true),
+                "abcdefghijkmnopqrstuvwxyz", // Excludes l only
+                "lIO0123456789!@#$%^&*()_+-=[]{}|;:,.<>?ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            ),
+            (
+                PasswordConfig::new()
+                    .with_uppercase(false)
+                    .with_lowercase(false)
+                    .with_digits(true)
+                    .with_symbols(false)
+                    .with_exclude_ambiguous(true),
+                "23456789", // Excludes 0, 1
+                "01lIOi!@#$%^&*()_+-=[]{}|;:,.<>?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+            ),
+            (
+                PasswordConfig::new()
+                    .with_uppercase(false)
+                    .with_lowercase(false)
+                    .with_digits(false)
+                    .with_symbols(true)
+                    .with_exclude_ambiguous(true),
+                "!@#$%^&*+-=?", // Reduced symbol set
+                "()_[]{}|;:,.<>lIO0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+            ),
+        ];
+
+        for (config, expected_chars, forbidden_chars) in test_cases {
+            let password = config.generate().unwrap();
+
+            // Check that all characters in the password are from the expected set
+            for ch in password.chars() {
+                assert!(
+                    expected_chars.contains(ch),
+                    "Character '{ch}' should be in expected set '{expected_chars}'"
+                );
+                assert!(
+                    !forbidden_chars.contains(ch),
+                    "Character '{ch}' should not be in forbidden set"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_minimum_character_requirements() {
+        // Test that passwords contain at least one character from each enabled set
+        let config = PasswordConfig::new()
+            .with_length(20)
+            .with_uppercase(true)
+            .with_lowercase(true)
+            .with_digits(true)
+            .with_symbols(true);
+
+        // Test multiple generations to ensure consistency
+        for _ in 0..10 {
+            let password = config.generate().unwrap();
+
+            assert!(
+                password.chars().any(|c| c.is_ascii_uppercase()),
+                "Password should contain at least one uppercase letter"
+            );
+            assert!(
+                password.chars().any(|c| c.is_ascii_lowercase()),
+                "Password should contain at least one lowercase letter"
+            );
+            assert!(
+                password.chars().any(|c| c.is_ascii_digit()),
+                "Password should contain at least one digit"
+            );
+            assert!(
+                password.chars().any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c)),
+                "Password should contain at least one symbol"
+            );
+        }
+    }
+
+    #[test]
+    fn test_memorable_password_syllable_count() {
+        let password = generate_memorable_password();
+
+        // Remove digits to get just the syllable part
+        let letters_only: String = password.chars().filter(char::is_ascii_alphabetic).collect();
+
+        // Based on implementation: 2 words × 3-4 syllables × 2 chars per syllable = 12-16 chars
+        assert!(
+            letters_only.len() >= 12,
+            "Should have at least 12 letters from syllables, got {}",
+            letters_only.len()
+        );
+        assert!(
+            letters_only.len() <= 16,
+            "Should have at most 16 letters from syllables, got {}",
+            letters_only.len()
+        );
+    }
+
+    #[test]
+    fn test_memorable_password_digit_count() {
+        let password = generate_memorable_password();
+        let digit_count = password.chars().filter(char::is_ascii_digit).count();
+
+        // Based on implementation: 1 separator digit + 2 ending digits = 3 total
+        assert_eq!(digit_count, 3, "Memorable password should have exactly 3 digits");
+    }
+
+    #[test]
+    fn test_memorable_password_capitalization_pattern() {
+        for _ in 0..10 {
+            let password = generate_memorable_password();
+
+            // First character should be uppercase
+            assert!(
+                password.chars().next().unwrap().is_ascii_uppercase(),
+                "First character should be uppercase"
+            );
+
+            // Find the first digit (separator)
+            if let Some(separator_pos) = password.chars().position(|c| c.is_ascii_digit()) {
+                let chars: Vec<char> = password.chars().collect();
+
+                let mut first_syllable_chars = 0;
+                for (i, &ch) in chars.iter().enumerate() {
+                    if i >= separator_pos {
+                        break;
+                    }
+                    if ch.is_ascii_alphabetic() {
+                        first_syllable_chars += 1;
+                        if first_syllable_chars <= 2 {
+                            assert!(
+                                ch.is_ascii_uppercase(),
+                                "Character '{ch}' at position {i} in first syllable should be uppercase"
+                            );
+                        } else {
+                            assert!(
+                                ch.is_ascii_lowercase(),
+                                "Character '{ch}' at position {i} should be lowercase (after first syllable)"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_memorable_password_structure_consistency() {
+        // Test the general structure: Word1 + Digit + Word2 + DigitDigit
+        for _ in 0..20 {
+            let password = generate_memorable_password();
+            let chars: Vec<char> = password.chars().collect();
+
+            // Should start with uppercase letter
+            assert!(chars[0].is_ascii_uppercase());
+
+            // Should end with two digits
+            let len = chars.len();
+            assert!(chars[len - 1].is_ascii_digit(), "Should end with digit");
+            assert!(chars[len - 2].is_ascii_digit(), "Second to last should be digit");
+
+            // Should have exactly 3 digits total
+            let digit_count = password.chars().filter(char::is_ascii_digit).count();
+            assert_eq!(digit_count, 3, "Should have exactly 3 digits");
+        }
+    }
+
+    #[test]
+    fn test_performance_large_passwords() {
+        use std::time::Instant;
+
+        let start = Instant::now();
+        let config = PasswordConfig::new().with_length(128);
+
+        for _ in 0..100 {
+            let password = config.generate().unwrap();
+            assert_eq!(password.len(), 128);
+        }
+
+        let duration = start.elapsed();
+        assert!(
+            duration.as_secs() < 5,
+            "Password generation should complete within 5 seconds"
+        );
+    }
+
+    #[test]
+    fn test_character_distribution_balance() {
+        let config = PasswordConfig::new().with_length(400); // Large sample
+        let password = config.generate().unwrap();
+
+        let uppercase_count = password.chars().filter(char::is_ascii_uppercase).count();
+        let lowercase_count = password.chars().filter(char::is_ascii_lowercase).count();
+        let digit_count = password.chars().filter(char::is_ascii_digit).count();
+        let symbol_count = password
+            .chars()
+            .filter(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(*c))
+            .count();
+
+        // With a large sample, each character type should appear reasonably frequently
+        // Allow for some variance but ensure no type is completely absent or overwhelming
+        assert!(
+            uppercase_count >= 20,
+            "Should have at least 20 uppercase chars, got {uppercase_count}"
+        );
+        assert!(
+            lowercase_count >= 20,
+            "Should have at least 20 lowercase chars, got {lowercase_count}"
+        );
+        assert!(digit_count >= 5, "Should have at least 5 digits, got {digit_count}");
+        assert!(symbol_count >= 5, "Should have at least 5 symbols, got {symbol_count}");
+
+        // No single type should dominate (more than 80% of total)
+        assert!(uppercase_count < 320, "Uppercase shouldn't dominate");
+        assert!(lowercase_count < 320, "Lowercase shouldn't dominate");
+        assert!(digit_count < 320, "Digits shouldn't dominate");
+        assert!(symbol_count < 320, "Symbols shouldn't dominate");
+    }
+
+    #[test]
+    fn test_all_builder_methods_together() {
+        let config = PasswordConfig::new()
+            .with_length(32)
+            .with_uppercase(true)
+            .with_lowercase(true)
+            .with_digits(true)
+            .with_symbols(true)
+            .with_exclude_ambiguous(true);
+
+        let password = config.generate().unwrap();
+        assert_eq!(password.len(), 32);
+        assert_eq!(config.length, 32);
+        assert!(config.include_uppercase);
+        assert!(config.include_lowercase);
+        assert!(config.include_digits);
+        assert!(config.include_symbols);
+        assert!(config.exclude_ambiguous);
+
+        // Verify the password follows the configuration
+        assert!(password.chars().any(|c| c.is_ascii_uppercase()));
+        assert!(password.chars().any(|c| c.is_ascii_lowercase()));
+        assert!(password.chars().any(|c| c.is_ascii_digit()));
+        assert!(password.chars().any(|c| "!@#$%^&*+-=?".contains(c))); // Reduced symbol set
+
+        // Should not contain ambiguous characters
+        let ambiguous = "0O1lI";
+        assert!(!password.chars().any(|c| ambiguous.contains(c)));
+    }
+
+    #[test]
+    fn test_password_entropy_distribution() {
+        // Test that repeated password generation produces varied results
+        let config = PasswordConfig::new().with_length(16);
+        let mut passwords = std::collections::HashSet::new();
+
+        // Generate many passwords
+        for _ in 0..100 {
+            let password = config.generate().unwrap();
+            passwords.insert(password);
+        }
+
+        // Should have generated mostly unique passwords (very high probability)
+        assert!(
+            passwords.len() >= 95,
+            "Should generate mostly unique passwords, got {} unique out of 100",
+            passwords.len()
+        );
+    }
+
+    #[test]
+    fn test_edge_case_single_character_type_minimum_length() {
+        let config = PasswordConfig::new()
+            .with_length(4) // Minimum length
+            .with_uppercase(true)
+            .with_lowercase(false)
+            .with_digits(false)
+            .with_symbols(false);
+
+        let password = config.generate().unwrap();
+        assert_eq!(password.len(), 4);
+        assert!(password.chars().all(|c| c.is_ascii_uppercase()));
+        assert!(password.chars().any(|c| c.is_ascii_uppercase())); // At least one char
+    }
 }

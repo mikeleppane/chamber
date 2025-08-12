@@ -663,9 +663,11 @@ mod tests {
 
         assert!(filename.starts_with("chamber_backup_"));
         assert!(filename.contains("_1640995200"));
-        assert!(Path::new(&filename)
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("json")));
+        assert!(
+            Path::new(&filename)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+        );
     }
 
     #[test]
