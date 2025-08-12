@@ -658,12 +658,14 @@ mod tests {
         let vault = MockVault::new(vec![]);
         let manager = BackupManager::new(vault, config);
 
-        let timestamp = OffsetDateTime::from_unix_timestamp(1640995200).unwrap(); // 2022-01-01 00:00:00 UTC
+        let timestamp = OffsetDateTime::from_unix_timestamp(1_640_995_200).unwrap(); // 2022-01-01 00:00:00 UTC
         let filename = manager.generate_backup_filename(&timestamp).unwrap();
 
         assert!(filename.starts_with("chamber_backup_"));
         assert!(filename.contains("_1640995200"));
-        assert!(filename.ends_with(".json"));
+        assert!(Path::new(&filename)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("json")));
     }
 
     #[test]
@@ -673,7 +675,7 @@ mod tests {
         let vault = MockVault::new(vec![]);
         let manager = BackupManager::new(vault, config);
 
-        let timestamp = OffsetDateTime::from_unix_timestamp(1640995200).unwrap();
+        let timestamp = OffsetDateTime::from_unix_timestamp(1_640_995_200).unwrap();
         let filename = manager.generate_backup_filename(&timestamp).unwrap();
 
         assert!(filename.starts_with("chamber_backup_"));
@@ -689,10 +691,10 @@ mod tests {
             let vault = MockVault::new(vec![]);
             let manager = BackupManager::new(vault, config);
 
-            let timestamp = OffsetDateTime::from_unix_timestamp(1640995200).unwrap();
+            let timestamp = OffsetDateTime::from_unix_timestamp(1_640_995_200).unwrap();
             let filename = manager.generate_backup_filename(&timestamp).unwrap();
 
-            assert!(filename.ends_with(&format!(".{}", format)));
+            assert!(filename.ends_with(&format!(".{format}")));
         }
     }
 
@@ -729,15 +731,15 @@ mod tests {
 
     #[test]
     fn test_is_backup_file() {
-        assert!(BackupManager::<MockVault>::is_backup_file(&std::path::Path::new(
+        assert!(BackupManager::<MockVault>::is_backup_file(Path::new(
             "chamber_backup_2024-01-01_00-00-00Z_1640995200.json"
         )));
 
-        assert!(!BackupManager::<MockVault>::is_backup_file(&std::path::Path::new(
+        assert!(!BackupManager::<MockVault>::is_backup_file(Path::new(
             "not_a_backup.json"
         )));
 
-        assert!(!BackupManager::<MockVault>::is_backup_file(&std::path::Path::new(
+        assert!(!BackupManager::<MockVault>::is_backup_file(Path::new(
             "chamber_2024-01-01.json"
         )));
     }
@@ -941,13 +943,13 @@ mod tests {
 
         // Create more backups than the limit
         let backups = [
-            ("chamber_backup_2024-01-01_00-00-00Z_1640995200.json", 1640995200),
-            ("chamber_backup_2024-01-02_00-00-00Z_1641081600.json", 1641081600),
-            ("chamber_backup_2024-01-03_00-00-00Z_1641168000.json", 1641168000),
-            ("chamber_backup_2024-01-04_00-00-00Z_1641254400.json", 1641254400),
-            ("chamber_backup_2024-01-05_00-00-00Z_1641340800.json", 1641340800),
-            ("chamber_backup_2024-01-06_00-00-00Z_1641427200.json", 1641427200),
-            ("chamber_backup_2024-01-07_00-00-00Z_1641513600.json", 1641513600),
+            ("chamber_backup_2024-01-01_00-00-00Z_1640995200.json", 1_640_995_200),
+            ("chamber_backup_2024-01-02_00-00-00Z_1641081600.json", 1_641_081_600),
+            ("chamber_backup_2024-01-03_00-00-00Z_1641168000.json", 1_641_168_000),
+            ("chamber_backup_2024-01-04_00-00-00Z_1641254400.json", 1_641_254_400),
+            ("chamber_backup_2024-01-05_00-00-00Z_1641340800.json", 1_641_340_800),
+            ("chamber_backup_2024-01-06_00-00-00Z_1641427200.json", 1_641_427_200),
+            ("chamber_backup_2024-01-07_00-00-00Z_1641513600.json", 1_641_513_600),
         ];
 
         for (filename, _) in &backups {

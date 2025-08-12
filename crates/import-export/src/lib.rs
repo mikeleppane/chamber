@@ -392,6 +392,7 @@ pub fn detect_format_from_extension(path: &Path) -> Option<ExportFormat> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]
+    #![allow(clippy::cast_possible_wrap)]
     use super::*;
     use chamber_vault::{Item, ItemKind};
     use std::{fs, path::PathBuf};
@@ -620,6 +621,514 @@ mod tests {
         // Remove dirs from deepest to top
         if let Some(parent) = nested.parent() {
             fs::remove_dir_all(parent.parent().unwrap_or(parent)).ok();
+        }
+    }
+
+    #[test]
+    fn test_csv_with_unterminated_quotes() {
+        let path = unique_path("csv");
+        let content = "name,kind,value\n\"unterminated,password,secret";
+        fs::write(&path, content).unwrap();
+
+        let err = import_items(&path, &ExportFormat::Csv).unwrap_err();
+        fs::remove_file(&path).ok();
+
+        assert!(err.to_string().contains("unterminated quoted field"));
+    }
+
+    #[test]
+    fn test_csv_multiline_records() {
+        let path = unique_path("csv");
+        let content = "name,kind,value\n\"multi\nline\nname\",password,\"multi\nline\nvalue\"";
+        fs::write(&path, content).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert_eq!(imported.len(), 1);
+        assert_eq!(imported[0].name, "multi\nline\nname");
+        assert_eq!(imported[0].value, "multi\nline\nvalue");
+    }
+
+    #[test]
+    fn test_csv_with_only_headers() {
+        let path = unique_path("csv");
+        fs::write(&path, "name,kind,value,created_at,updated_at\n").unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert!(imported.is_empty());
+    }
+
+    #[test]
+    fn test_csv_with_extra_fields() {
+        let path = unique_path("csv");
+        let content = "name,kind,value,extra1,extra2,extra3\ntest,password,secret,field4,field5,field6";
+        fs::write(&path, content).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert_eq!(imported.len(), 1);
+        assert_eq!(imported[0].name, "test");
+        assert_eq!(imported[0].value, "secret");
+    }
+
+    #[test]
+    fn test_csv_with_empty_fields() {
+        let path = unique_path("csv");
+        let content = "name,kind,value\n,password,\nempty_name,note,";
+        fs::write(&path, content).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert_eq!(imported.len(), 2);
+        assert_eq!(imported[0].name, "");
+        assert_eq!(imported[0].value, "");
+        assert_eq!(imported[1].name, "empty_name");
+        assert_eq!(imported[1].value, "");
+    }
+
+    #[test]
+    fn test_csv_with_whitespace_handling() {
+        let path = unique_path("csv");
+        let content = "name,kind,value\n  spaced name  ,  password  ,  spaced value  ";
+        fs::write(&path, content).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert_eq!(imported.len(), 1);
+        assert_eq!(imported[0].name, "spaced name");
+        assert_eq!(imported[0].value, "spaced value");
+    }
+
+    #[test]
+    fn test_import_nonexistent_file() {
+        // Generate a path that definitely doesn't exist
+        let nonexistent = {
+            let mut path = std::env::temp_dir();
+            path.push("chamber_test_nonexistent");
+            path.push("deeply");
+            path.push("nested");
+            path.push("path");
+            path.push("file.json");
+            path
+        };
+
+        // Ensure the path doesn't exist
+        assert!(!nonexistent.exists());
+
+        // Test that import fails for all formats
+        for format in [ExportFormat::Json, ExportFormat::Csv, ExportFormat::ChamberBackup] {
+            let result = import_items(&nonexistent, &format);
+            assert!(
+                result.is_err(),
+                "Import should fail for nonexistent file with format {format:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_chamber_backup_with_zero_items() {
+        let path = unique_path("json");
+        export_items(&[], &ExportFormat::ChamberBackup, &path).unwrap();
+
+        // Verify the backup structure
+        let content = fs::read_to_string(&path).unwrap();
+        let backup: ChamberBackup = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(backup.version, "1.0");
+        assert_eq!(backup.item_count, 0);
+        assert!(backup.items.is_empty());
+
+        let imported = import_items(&path, &ExportFormat::ChamberBackup).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert!(imported.is_empty());
+    }
+
+    #[test]
+    fn test_csv_with_unicode_content() {
+        let items = vec![
+            mk_item(1, "🔒 密码", ItemKind::Password, "测试密码123"),
+            mk_item(2, "café", ItemKind::Note, "Héllö Wörld! 🌍"),
+            mk_item(3, "русский", ItemKind::EnvVar, "значение=тест"),
+        ];
+
+        let path = unique_path("csv");
+        export_items(&items, &ExportFormat::Csv, &path).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert_eq!(imported.len(), 3);
+        assert_eq!(imported[0].name, "🔒 密码");
+        assert_eq!(imported[0].value, "测试密码123");
+        assert_eq!(imported[1].name, "café");
+        assert_eq!(imported[1].value, "Héllö Wörld! 🌍");
+        assert_eq!(imported[2].name, "русский");
+        assert_eq!(imported[2].value, "значение=тест");
+    }
+
+    #[test]
+    fn test_export_to_readonly_directory() {
+        // Create a temporary directory and make it read-only
+        let temp_dir = std::env::temp_dir().join("readonly_test");
+        fs::create_dir_all(&temp_dir).ok();
+
+        // Try to make the directory read-only (this might not work on all systems)
+        let _ = temp_dir.join("test.json");
+
+        // On Windows, we can't easily make directories read-only, so we'll
+        // test a different scenario - trying to write to a file that's a directory
+        let dir_as_file = temp_dir.join("not_a_file");
+        fs::create_dir_all(&dir_as_file).ok();
+
+        let items = sample_items();
+        let result = export_items(&items, &ExportFormat::Json, &dir_as_file);
+
+        // Cleanup
+        fs::remove_dir_all(&temp_dir).ok();
+
+        // Should fail because we're trying to write to a directory
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_all_itemkind_variants_round_trip() {
+        let all_kinds = [
+            ItemKind::Password,
+            ItemKind::EnvVar,
+            ItemKind::Note,
+            ItemKind::ApiKey,
+            ItemKind::SshKey,
+            ItemKind::Certificate,
+            ItemKind::Database,
+        ];
+
+        let items: Vec<Item> = all_kinds
+            .iter()
+            .enumerate()
+            .map(|(i, &kind)| mk_item(i as i64 + 1, &format!("item_{}", kind.as_str()), kind, "test_value"))
+            .collect();
+
+        // Test JSON round trip
+        let json_path = unique_path("json");
+        export_items(&items, &ExportFormat::Json, &json_path).unwrap();
+        let json_imported = import_items(&json_path, &ExportFormat::Json).unwrap();
+        fs::remove_file(&json_path).ok();
+
+        // Test CSV round trip
+        let csv_path = unique_path("csv");
+        export_items(&items, &ExportFormat::Csv, &csv_path).unwrap();
+        let csv_imported = import_items(&csv_path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&csv_path).ok();
+
+        // Test Chamber backup round trip
+        let backup_path = unique_path("json");
+        export_items(&items, &ExportFormat::ChamberBackup, &backup_path).unwrap();
+        let backup_imported = import_items(&backup_path, &ExportFormat::ChamberBackup).unwrap();
+        fs::remove_file(&backup_path).ok();
+
+        // Verify all formats preserved all kinds
+        for imported in [&json_imported, &csv_imported, &backup_imported] {
+            assert_eq!(imported.len(), all_kinds.len());
+            for (i, item) in imported.iter().enumerate() {
+                assert_eq!(item.kind, all_kinds[i]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_csv_with_embedded_newlines() {
+        let items = vec![
+            mk_item(1, "line1\nline2", ItemKind::Note, "value1\nvalue2\nvalue3"),
+            mk_item(2, "normal", ItemKind::Password, "no newlines"),
+        ];
+
+        let path = unique_path("csv");
+        export_items(&items, &ExportFormat::Csv, &path).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert_eq!(imported.len(), 2);
+        assert_eq!(imported[0].name, "line1\nline2");
+        assert_eq!(imported[0].value, "value1\nvalue2\nvalue3");
+        assert_eq!(imported[1].name, "normal");
+        assert_eq!(imported[1].value, "no newlines");
+    }
+
+    #[test]
+    fn test_chamber_backup_metadata_validation() {
+        let items = sample_items();
+        let path = unique_path("json");
+
+        export_items(&items, &ExportFormat::ChamberBackup, &path).unwrap();
+
+        // Read and verify the backup structure
+        let content = fs::read_to_string(&path).unwrap();
+        let backup: ChamberBackup = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(backup.version, "1.0");
+        assert_eq!(backup.item_count, items.len());
+        assert_eq!(backup.items.len(), items.len());
+        assert!(!backup.exported_at.is_empty());
+
+        // Verify timestamp format
+        let _: OffsetDateTime =
+            OffsetDateTime::parse(&backup.exported_at, &time::format_description::well_known::Rfc3339)
+                .expect("exported_at should be valid RFC3339 timestamp");
+
+        fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn test_format_detection_edge_cases() {
+        // Test files without extensions
+        assert!(detect_format_from_extension(Path::new("noext")).is_none());
+
+        // Test empty extension
+        assert!(detect_format_from_extension(Path::new("file.")).is_none());
+
+        // Test case variations
+        assert!(matches!(
+            detect_format_from_extension(Path::new("FILE.JSON")),
+            Some(ExportFormat::Json)
+        ));
+        assert!(matches!(
+            detect_format_from_extension(Path::new("file.Csv")),
+            Some(ExportFormat::Csv)
+        ));
+
+        // Test backup detection heuristics
+        assert!(matches!(
+            detect_format_from_extension(Path::new("chamber_export.json")),
+            Some(ExportFormat::ChamberBackup)
+        ));
+        assert!(matches!(
+            detect_format_from_extension(Path::new("my_backup_file.json")),
+            Some(ExportFormat::ChamberBackup)
+        ));
+        assert!(matches!(
+            detect_format_from_extension(Path::new("regular_data.json")),
+            Some(ExportFormat::Json)
+        ));
+
+        // Test complex paths
+        assert!(matches!(
+            detect_format_from_extension(Path::new("/path/to/chamber_backup_2024.json")),
+            Some(ExportFormat::ChamberBackup)
+        ));
+    }
+
+    #[test]
+    fn test_very_large_field_values() {
+        let large_value = "x".repeat(10_000); // 10KB string
+        let large_name = "n".repeat(1000); // 1KB name
+
+        let items = vec![
+            mk_item(1, &large_name, ItemKind::Note, &large_value),
+            mk_item(2, "normal", ItemKind::Password, "small"),
+        ];
+
+        // Test with all formats
+        for (format, ext) in [
+            (ExportFormat::Json, "json"),
+            (ExportFormat::Csv, "csv"),
+            (ExportFormat::ChamberBackup, "json"),
+        ] {
+            let path = unique_path(ext);
+            export_items(&items, &format, &path).unwrap();
+
+            let imported = import_items(&path, &format).unwrap();
+            fs::remove_file(&path).ok();
+
+            assert_eq!(imported.len(), 2);
+            assert_eq!(imported[0].name, large_name);
+            assert_eq!(imported[0].value, large_value);
+            assert_eq!(imported[1].name, "normal");
+            assert_eq!(imported[1].value, "small");
+        }
+    }
+
+    #[test]
+    fn test_exported_item_timestamp_fallback() {
+        // Create an item with a timestamp that might cause formatting issues
+        let far_future = OffsetDateTime::from_unix_timestamp(253_402_300_799).unwrap_or(OffsetDateTime::now_utc()); // Year 9999
+
+        let item = Item {
+            id: 1,
+            name: "test".to_string(),
+            kind: ItemKind::Password,
+            value: "value".to_string(),
+            created_at: far_future,
+            updated_at: far_future,
+        };
+
+        let exported = ExportedItem::from(&item);
+
+        // Should either have a valid timestamp or fallback to "unknown"
+        assert!(!exported.created_at.is_empty());
+        assert!(!exported.updated_at.is_empty());
+    }
+
+    #[test]
+    fn test_csv_parsing_complex_quoting() {
+        let path = unique_path("csv");
+        // Complex CSV with nested quotes and commas
+        let content = r#"name,kind,value
+"item ""with"" quotes",password,"value, with ""quotes"" and, commas"
+simple,note,no_quotes
+"trailing comma,",envvar,"value,"
+"#;
+        fs::write(&path, content).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Csv).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert_eq!(imported.len(), 3);
+        assert_eq!(imported[0].name, r#"item "with" quotes"#);
+        assert_eq!(imported[0].value, r#"value, with "quotes" and, commas"#);
+        assert_eq!(imported[1].name, "simple");
+        assert_eq!(imported[2].name, "trailing comma,");
+        assert_eq!(imported[2].value, "value,");
+    }
+
+    #[test]
+    fn test_json_empty_array() {
+        let path = unique_path("json");
+        fs::write(&path, "[]").unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Json).unwrap();
+        fs::remove_file(&path).ok();
+
+        assert!(imported.is_empty());
+    }
+
+    #[test]
+    fn test_invalid_itemkind_conversion() {
+        let path = unique_path("json");
+        let invalid_json = r#"[{"name":"test","kind":"invalid_kind","value":"test","created_at":"2024-01-01T00:00:00Z","updated_at":"2024-01-01T00:00:00Z"}]"#;
+        fs::write(&path, invalid_json).unwrap();
+
+        let imported = import_items(&path, &ExportFormat::Json).unwrap();
+        fs::remove_file(&path).ok();
+
+        // ItemKind::from_str is designed to be infallible and defaults unknown kinds to Note
+        assert_eq!(imported.len(), 1);
+        assert_eq!(imported[0].name, "test");
+        assert_eq!(imported[0].kind, ItemKind::Note); // "invalid_kind" should default to Note
+        assert_eq!(imported[0].value, "test");
+    }
+
+    #[test]
+    fn test_json_parse_error_missing_required_fields() {
+        let path = unique_path("json");
+        // Missing required fields like "name" or "value"
+        let invalid_json = r#"[{"kind":"password","created_at":"2024-01-01T00:00:00Z"}]"#;
+        fs::write(&path, invalid_json).unwrap();
+
+        let err = import_items(&path, &ExportFormat::Json).unwrap_err();
+        fs::remove_file(&path).ok();
+
+        // Should fail due to missing required fields during deserialization
+        let error_msg = err.to_string().to_lowercase();
+        assert!(error_msg.contains("json") || error_msg.contains("missing") || error_msg.contains("error"));
+    }
+
+    #[test]
+    fn test_nested_directory_creation_all_formats() {
+        let base_dir = std::env::temp_dir().join(format!("chamber_test_{}", std::process::id()));
+        let items = vec![mk_item(1, "test", ItemKind::Password, "value")];
+
+        for (format, ext) in [
+            (ExportFormat::Json, "json"),
+            (ExportFormat::Csv, "csv"),
+            (ExportFormat::ChamberBackup, "json"),
+        ] {
+            let nested_path = base_dir
+                .join(format!("{format:?}"))
+                .join("level1")
+                .join("level2")
+                .join(format!("export.{ext}"));
+
+            // Ensure the parent directory exists for formats that don't create it automatically
+            if let Some(parent) = nested_path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+
+            export_items(&items, &format, &nested_path).unwrap();
+            assert!(nested_path.exists());
+
+            let imported = import_items(&nested_path, &format).unwrap();
+            assert_eq!(imported.len(), 1);
+        }
+
+        // Cleanup
+        fs::remove_dir_all(&base_dir).ok();
+    }
+
+    #[test]
+    fn test_csv_escape_field_function() {
+        // Test the escape_csv_field function directly through export behavior
+        let items = vec![
+            mk_item(1, "no_escaping_needed", ItemKind::Password, "simple_value"),
+            mk_item(2, "has,comma", ItemKind::Password, "has\"quote"),
+            mk_item(3, "has\nnewline", ItemKind::Password, "normal"),
+            mk_item(4, "has\"quote", ItemKind::Password, "has,comma"),
+        ];
+
+        let path = unique_path("csv");
+        export_items(&items, &ExportFormat::Csv, &path).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        fs::remove_file(&path).ok();
+
+        // Verify escaping behavior in the CSV content
+        assert!(content.contains("\"has,comma\"")); // Comma escaped
+        assert!(content.contains("\"has\"\"quote\"")); // Quote escaped
+        assert!(content.contains("\"has\nnewline\"")); // Newline escaped
+        assert!(content.contains("no_escaping_needed")); // No escaping needed
+    }
+
+    #[test]
+    fn test_performance_with_many_items() {
+        // Test with a reasonable number of items (not too many to slow down tests)
+        let items: Vec<Item> = (0..100)
+            .map(|i| mk_item(i, &format!("item_{i}"), ItemKind::Password, &format!("value_{i}")))
+            .collect();
+
+        for format in [ExportFormat::Json, ExportFormat::Csv, ExportFormat::ChamberBackup] {
+            let path = unique_path(match format {
+                ExportFormat::Csv => "csv",
+                _ => "json",
+            });
+
+            let start = std::time::Instant::now();
+            export_items(&items, &format, &path).unwrap();
+            let export_duration = start.elapsed();
+
+            let start = std::time::Instant::now();
+            let imported = import_items(&path, &format).unwrap();
+            let import_duration = start.elapsed();
+
+            fs::remove_file(&path).ok();
+
+            assert_eq!(imported.len(), 100);
+
+            // Should complete within reasonable time (adjust if needed)
+            assert!(
+                export_duration.as_secs() < 5,
+                "Export took too long: {export_duration:?}"
+            );
+            assert!(
+                import_duration.as_secs() < 5,
+                "Import took too long: {import_duration:?}"
+            );
         }
     }
 }
