@@ -9,7 +9,6 @@ chamber-vault = {workspace = true}
 chamber-password-gen = {workspace = true}
 chamber-import-export = {workspace = true}
 anyhow = { workspace = true }
-crossterm = { workspace = true }
 dirs = { workspace = true }
 ratatui = { workspace = true }
 arboard = { workspace = true }

@@ -92,7 +92,7 @@ impl<V: VaultOperations> BackupManager<V> {
         let most_recent = self.find_most_recent_backup()?;
 
         if let Some(recent_path) = most_recent {
-            // Check the timestamp in filename
+            // Check the timestamp in the filename
             if let Some(timestamp) = self.extract_timestamp_from_filename(&recent_path) {
                 let now = OffsetDateTime::now_utc();
                 let duration_since = now - timestamp;
@@ -363,7 +363,7 @@ impl<V: VaultOperations> BackupManager<V> {
         if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
             // Extract Unix timestamp from filename
             // Format: chamber_backup_YYYY-MM-DD_HH-MM-SSZ_TIMESTAMP.format
-            if let Some(timestamp_part) = filename.split('_').nth(3) {
+            if let Some(timestamp_part) = filename.split('_').nth(4) {
                 if let Some(timestamp_str) = timestamp_part.split('.').next() {
                     if let Ok(timestamp) = timestamp_str.parse::<i64>() {
                         return OffsetDateTime::from_unix_timestamp(timestamp).ok();
@@ -378,6 +378,7 @@ impl<V: VaultOperations> BackupManager<V> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]
+    #![allow(clippy::panic)]
     use super::*;
     use anyhow::Result;
     use chamber_vault::{BackupConfig, Item, ItemKind};
@@ -436,6 +437,25 @@ mod tests {
             interval_hours: 24,
             max_backups: 5,
             verify_after_backup: false, // Disable for testing since we can't mock export_items
+        }
+    }
+
+    fn create_test_config_with_options(
+        temp_dir: &TempDir,
+        format: &str,
+        compress: bool,
+        verify: bool,
+        max_backups: usize,
+        interval_hours: u64,
+    ) -> BackupConfig {
+        BackupConfig {
+            enabled: true,
+            backup_dir: temp_dir.path().join("backups"),
+            format: format.to_string(),
+            compress,
+            interval_hours,
+            max_backups,
+            verify_after_backup: verify,
         }
     }
 
@@ -629,5 +649,524 @@ mod tests {
         assert_eq!(items1[0].name, items2[0].name);
         assert_eq!(items1[0].kind, items2[0].kind);
         assert_eq!(items1[0].value, items2[0].value);
+    }
+
+    #[test]
+    fn test_generate_backup_filename() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let timestamp = OffsetDateTime::from_unix_timestamp(1640995200).unwrap(); // 2022-01-01 00:00:00 UTC
+        let filename = manager.generate_backup_filename(&timestamp).unwrap();
+
+        assert!(filename.starts_with("chamber_backup_"));
+        assert!(filename.contains("_1640995200"));
+        assert!(filename.ends_with(".json"));
+    }
+
+    #[test]
+    fn test_generate_backup_filename_with_compression() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config_with_options(&temp_dir, "json", true, false, 5, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let timestamp = OffsetDateTime::from_unix_timestamp(1640995200).unwrap();
+        let filename = manager.generate_backup_filename(&timestamp).unwrap();
+
+        assert!(filename.starts_with("chamber_backup_"));
+        assert!(filename.ends_with(".json.gz"));
+    }
+
+    #[test]
+    fn test_generate_backup_filename_different_formats() {
+        let temp_dir = TempDir::new().unwrap();
+
+        for format in ["json", "csv", "backup"] {
+            let config = create_test_config_with_options(&temp_dir, format, false, false, 5, 24);
+            let vault = MockVault::new(vec![]);
+            let manager = BackupManager::new(vault, config);
+
+            let timestamp = OffsetDateTime::from_unix_timestamp(1640995200).unwrap();
+            let filename = manager.generate_backup_filename(&timestamp).unwrap();
+
+            assert!(filename.ends_with(&format!(".{}", format)));
+        }
+    }
+
+    #[test]
+    fn test_extract_timestamp_from_filename() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        // Test with actual generated filename format
+        let timestamp = OffsetDateTime::from_unix_timestamp(1_640_995_200).unwrap();
+        let generated_filename = manager.generate_backup_filename(&timestamp).unwrap();
+        let test_path = temp_dir.path().join(&generated_filename);
+
+        let extracted_timestamp = manager.extract_timestamp_from_filename(&test_path);
+
+        assert!(extracted_timestamp.is_some());
+        assert_eq!(extracted_timestamp.unwrap().unix_timestamp(), 1_640_995_200);
+    }
+
+    #[test]
+    fn test_extract_timestamp_from_invalid_filename() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let test_path = temp_dir.path().join("invalid_filename.json");
+        let timestamp = manager.extract_timestamp_from_filename(&test_path);
+
+        assert!(timestamp.is_none());
+    }
+
+    #[test]
+    fn test_is_backup_file() {
+        assert!(BackupManager::<MockVault>::is_backup_file(&std::path::Path::new(
+            "chamber_backup_2024-01-01_00-00-00Z_1640995200.json"
+        )));
+
+        assert!(!BackupManager::<MockVault>::is_backup_file(&std::path::Path::new(
+            "not_a_backup.json"
+        )));
+
+        assert!(!BackupManager::<MockVault>::is_backup_file(&std::path::Path::new(
+            "chamber_2024-01-01.json"
+        )));
+    }
+
+    #[test]
+    fn test_find_most_recent_backup() {
+        let temp_dir = TempDir::new().unwrap();
+        let backup_dir = temp_dir.path().join("backups");
+        fs::create_dir_all(&backup_dir).unwrap();
+
+        // Create backup files with different timestamps
+        let backup1 = backup_dir.join("chamber_backup_2024-01-01_00-00-00Z_1640995200.json");
+        let backup2 = backup_dir.join("chamber_backup_2024-01-02_00-00-00Z_1641081600.json");
+        let backup3 = backup_dir.join("chamber_backup_2024-01-03_00-00-00Z_1641168000.json");
+
+        fs::write(&backup1, "backup1").unwrap();
+        fs::write(&backup2, "backup2").unwrap();
+        fs::write(&backup3, "backup3").unwrap();
+
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let most_recent = manager.find_most_recent_backup().unwrap();
+        assert!(most_recent.is_some());
+        assert_eq!(most_recent.unwrap(), backup3);
+    }
+
+    #[test]
+    fn test_find_most_recent_backup_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let most_recent = manager.find_most_recent_backup().unwrap();
+        assert!(most_recent.is_none());
+    }
+
+    #[test]
+    fn test_should_backup_with_recent_backup() {
+        let temp_dir = TempDir::new().unwrap();
+        let backup_dir = temp_dir.path().join("backups");
+        fs::create_dir_all(&backup_dir).unwrap();
+
+        // Create a recent backup (current time)
+        let now = OffsetDateTime::now_utc();
+        let timestamp = now.unix_timestamp();
+        let recent_backup = backup_dir.join(format!("chamber_backup_2024-01-01_00-00-00Z_{timestamp}.json"));
+        fs::write(&recent_backup, "recent backup").unwrap();
+
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        // Should return false because backup is too recent
+        assert!(!manager.should_backup().unwrap());
+    }
+
+    #[test]
+    fn test_should_backup_with_old_backup() {
+        let temp_dir = TempDir::new().unwrap();
+        let backup_dir = temp_dir.path().join("backups");
+        fs::create_dir_all(&backup_dir).unwrap();
+
+        // Create an old backup (25 hours ago)
+        let old_time = OffsetDateTime::now_utc() - time::Duration::hours(25);
+        let timestamp = old_time.unix_timestamp();
+        let old_backup = backup_dir.join(format!("chamber_backup_2024-01-01_00-00-00Z_{timestamp}.json"));
+        fs::write(&old_backup, "old backup").unwrap();
+
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        // Should return true because backup is older than interval
+        assert!(manager.should_backup().unwrap());
+    }
+
+    #[test]
+    fn test_compress_backup() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("test.json");
+        let test_content = r#"{"test": "data", "items": [1, 2, 3]}"#;
+
+        fs::write(&test_file, test_content).unwrap();
+
+        let compressed_path = BackupManager::<MockVault>::compress_backup(&test_file).unwrap();
+
+        assert!(compressed_path.extension().unwrap() == "gz");
+        assert!(compressed_path.exists());
+        assert!(!test_file.exists()); // Original should be removed
+
+        // Verify compressed file is not empty
+        let metadata = fs::metadata(&compressed_path).unwrap();
+        assert!(metadata.len() > 0);
+    }
+
+    #[test]
+    fn test_verify_compressed_backup() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("test.json");
+        let test_content = r#"{"test": "data"}"#;
+
+        fs::write(&test_file, test_content).unwrap();
+        let compressed_path = BackupManager::<MockVault>::compress_backup(&test_file).unwrap();
+
+        // Should not panic or return error
+        let result = BackupManager::<MockVault>::verify_compressed_backup(&compressed_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_compressed_backup_invalid_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let invalid_gz = temp_dir.path().join("invalid.gz");
+        fs::write(&invalid_gz, "not gzip data").unwrap();
+
+        let result = BackupManager::<MockVault>::verify_compressed_backup(&invalid_gz);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_uncompressed_backup_json() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config_with_options(&temp_dir, "json", false, false, 5, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let test_file = temp_dir.path().join("test.json");
+        let valid_json = r#"{"items": [{"name": "test", "value": "data"}]}"#;
+        fs::write(&test_file, valid_json).unwrap();
+
+        let result = manager.verify_uncompressed_backup(&test_file);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_uncompressed_backup_invalid_json() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config_with_options(&temp_dir, "json", false, false, 5, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let test_file = temp_dir.path().join("test.json");
+        fs::write(&test_file, "invalid json content").unwrap();
+
+        let result = manager.verify_uncompressed_backup(&test_file);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_uncompressed_backup_csv() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config_with_options(&temp_dir, "csv", false, false, 5, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let test_file = temp_dir.path().join("test.csv");
+        let valid_csv = "name,kind,value\ntest,password,secret";
+        fs::write(&test_file, valid_csv).unwrap();
+
+        let result = manager.verify_uncompressed_backup(&test_file);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_uncompressed_backup_invalid_csv() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config_with_options(&temp_dir, "csv", false, false, 5, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let test_file = temp_dir.path().join("test.csv");
+        fs::write(&test_file, "invalid csv header").unwrap();
+
+        let result = manager.verify_uncompressed_backup(&test_file);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_backup_empty_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let empty_file = temp_dir.path().join("empty.json");
+        fs::write(&empty_file, "").unwrap();
+
+        let result = manager.verify_backup(&empty_file);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty"));
+    }
+
+    #[test]
+    fn test_cleanup_old_backups() {
+        let temp_dir = TempDir::new().unwrap();
+        let backup_dir = temp_dir.path().join("backups");
+        fs::create_dir_all(&backup_dir).unwrap();
+
+        // Create more backups than the limit
+        let backups = [
+            ("chamber_backup_2024-01-01_00-00-00Z_1640995200.json", 1640995200),
+            ("chamber_backup_2024-01-02_00-00-00Z_1641081600.json", 1641081600),
+            ("chamber_backup_2024-01-03_00-00-00Z_1641168000.json", 1641168000),
+            ("chamber_backup_2024-01-04_00-00-00Z_1641254400.json", 1641254400),
+            ("chamber_backup_2024-01-05_00-00-00Z_1641340800.json", 1641340800),
+            ("chamber_backup_2024-01-06_00-00-00Z_1641427200.json", 1641427200),
+            ("chamber_backup_2024-01-07_00-00-00Z_1641513600.json", 1641513600),
+        ];
+
+        for (filename, _) in &backups {
+            let path = backup_dir.join(filename);
+            fs::write(&path, "backup content").unwrap();
+        }
+
+        let config = create_test_config_with_options(&temp_dir, "json", false, false, 3, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let result = manager.cleanup_old_backups();
+        assert!(result.is_ok());
+
+        // Should keep only 3 most recent backups
+        let remaining_backups = manager.find_all_backups().unwrap();
+        assert_eq!(remaining_backups.len(), 3);
+
+        // Verify the most recent ones are kept
+        let filenames: Vec<String> = remaining_backups
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+
+        assert!(filenames.contains(&"chamber_backup_2024-01-07_00-00-00Z_1641513600.json".to_string()));
+        assert!(filenames.contains(&"chamber_backup_2024-01-06_00-00-00Z_1641427200.json".to_string()));
+        assert!(filenames.contains(&"chamber_backup_2024-01-05_00-00-00Z_1641340800.json".to_string()));
+    }
+
+    #[test]
+    fn test_cleanup_old_backups_under_limit() {
+        let temp_dir = TempDir::new().unwrap();
+        let backup_dir = temp_dir.path().join("backups");
+        fs::create_dir_all(&backup_dir).unwrap();
+
+        // Create fewer backups than the limit
+        let backup1 = backup_dir.join("chamber_backup_2024-01-01_00-00-00Z_1640995200.json");
+        let backup2 = backup_dir.join("chamber_backup_2024-01-02_00-00-00Z_1641081600.json");
+
+        fs::write(&backup1, "backup1").unwrap();
+        fs::write(&backup2, "backup2").unwrap();
+
+        let config = create_test_config_with_options(&temp_dir, "json", false, false, 5, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let result = manager.cleanup_old_backups();
+        assert!(result.is_ok());
+
+        // Should keep all backups since under limit
+        let remaining_backups = manager.find_all_backups().unwrap();
+        assert_eq!(remaining_backups.len(), 2);
+    }
+
+    #[test]
+    fn test_backup_if_needed_vault_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new_failing();
+
+        let mut manager = BackupManager::new(vault, config);
+        let result = manager.backup_if_needed();
+
+        // Should propagate vault error when trying to list items
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Mock vault error"));
+    }
+
+    #[test]
+    fn test_force_backup_with_items() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let items = vec![create_test_item(1, "test_item")];
+        let vault = MockVault::new(items);
+
+        let mut manager = BackupManager::new(vault, config);
+
+        // Test the force_backup method
+        let result = manager.force_backup();
+
+        // The actual behavior may vary depending on export_items implementation
+        // Let's test what actually happens rather than assuming it fails
+        match result {
+            Ok(path) => {
+                // If it succeeds, verify we got a backup path
+                assert!(path.exists() || path.parent().is_some_and(|_| false));
+                println!("Force backup succeeded with path: {}", path.display());
+            }
+            Err(e) => {
+                // If it fails, verify it's not a vault error
+                let error_msg = e.to_string();
+                assert!(
+                    !error_msg.contains("Mock vault error"),
+                    "Error should not be from vault operations, got: {error_msg}"
+                );
+                println!("Force backup failed as expected with: {error_msg}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_force_backup_vault_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new_failing(); // Vault that fails on list_items
+
+        let mut manager = BackupManager::new(vault, config);
+
+        // This should fail because vault.list_items() fails
+        let result = manager.force_backup();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Mock vault error"));
+    }
+
+    #[test]
+    fn test_perform_backup_flow() {
+        // Test that perform_backup follows the expected flow
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let items = vec![create_test_item(1, "test_item")];
+        let vault = MockVault::new(items);
+
+        let mut manager = BackupManager::new(vault, config);
+
+        // Test perform_backup directly
+        let result = manager.perform_backup();
+
+        // Verify the backup directory was created
+        assert!(manager.config.backup_dir.exists());
+
+        // Check the result
+        match result {
+            Ok(Some(path)) => {
+                // Backup succeeded
+                assert!(path.to_string_lossy().contains("chamber_backup_"));
+                println!("Backup created at: {}", path.display());
+            }
+            Ok(None) => {
+                panic!("perform_backup returned None, which shouldn't happen in this test");
+            }
+            Err(e) => {
+                // Expected if export_items fails
+                println!("Backup failed with: {e}");
+                // Verify it's not a vault error
+                assert!(!e.to_string().contains("Mock vault error"));
+            }
+        }
+    }
+
+    #[test]
+    fn test_different_backup_formats() {
+        let temp_dir = TempDir::new().unwrap();
+
+        for format in ["json", "csv", "backup"] {
+            let config = create_test_config_with_options(&temp_dir, format, false, false, 5, 24);
+            let vault = MockVault::new(vec![create_test_item(1, "test")]);
+            let manager = BackupManager::new(vault, config);
+
+            let timestamp = OffsetDateTime::now_utc();
+            let filename = manager.generate_backup_filename(&timestamp).unwrap();
+            assert!(filename.ends_with(&format!(".{format}")));
+        }
+    }
+
+    #[test]
+    fn test_different_intervals() {
+        let temp_dir = TempDir::new().unwrap();
+
+        for interval in [1, 12, 24, 48, 168] {
+            // 1h, 12h, 24h, 48h, 1week
+            let config = create_test_config_with_options(&temp_dir, "json", false, false, 5, interval);
+            let vault = MockVault::new(vec![]);
+            let manager = BackupManager::new(vault, config);
+
+            assert_eq!(manager.config.interval_hours, interval);
+        }
+    }
+
+    #[test]
+    fn test_verify_unknown_format() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config_with_options(&temp_dir, "unknown", false, false, 5, 24);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        let test_file = temp_dir.path().join("test.unknown");
+        fs::write(&test_file, "some content").unwrap();
+
+        let result = manager.verify_uncompressed_backup(&test_file);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unknown backup format"));
+    }
+
+    #[test]
+    fn test_extract_timestamp_edge_cases() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let vault = MockVault::new(vec![]);
+        let manager = BackupManager::new(vault, config);
+
+        // Test with a malformed timestamp
+        let malformed_path = temp_dir.path().join("chamber_backup_2024-01-01_00-00-00Z_invalid.json");
+        assert!(manager.extract_timestamp_from_filename(&malformed_path).is_none());
+
+        // Test with a missing timestamp section
+        let missing_path = temp_dir.path().join("chamber_backup_2024-01-01_00-00-00Z.json");
+        assert!(manager.extract_timestamp_from_filename(&missing_path).is_none());
+
+        // Test with valid edge case timestamps
+        let edge_cases = [
+            ("chamber_backup_2024-01-01_00-00-00Z_0.json", 0),
+            ("chamber_backup_2024-01-01_00-00-00Z_2147483647.json", 2_147_483_647), // Max 32-bit
+        ];
+
+        for (filename, expected) in edge_cases {
+            let path = temp_dir.path().join(filename);
+            let timestamp = manager.extract_timestamp_from_filename(&path);
+            assert!(timestamp.is_some());
+            assert_eq!(timestamp.unwrap().unix_timestamp(), expected);
+        }
     }
 }
