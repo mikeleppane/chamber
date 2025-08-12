@@ -1,6 +1,8 @@
 pub mod config;
 pub mod crypto;
 pub mod db;
+mod manager;
+mod registry;
 
 // Re-export commonly used types and functions for easier access
 pub use crypto::{
@@ -11,12 +13,13 @@ pub use crypto::{
 pub use db::{Db, ItemRow};
 
 pub use crate::config::BackupConfig;
+pub use crate::manager::VaultManager;
+pub use crate::registry::{VaultCategory, VaultInfo, VaultRegistry};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use time::OffsetDateTime;
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum ItemKind {
     Password,
@@ -136,6 +139,12 @@ impl Vault {
             Some(p) => p.to_path_buf(),
             None => default_db_path()?,
         };
+
+        // Ensure the parent directory exists before trying to open the database
+        if let Some(parent) = db_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
         let db = Db::open(&db_path)?;
         Ok(Self { db, key: None, db_path })
     }
@@ -586,6 +595,136 @@ impl Vault {
 
         self.db.update_item(id, &nonce_cipher.0, &nonce_cipher.1)?;
         Ok(())
+    }
+
+    /// Opens an existing vault by its ID.
+    ///
+    /// This function attempts to load the `VaultRegistry` and retrieves the vault information
+    /// associated with the given `vault_id`. If the specified vault ID does not exist in the
+    /// registry, it returns an error. If found, it proceeds to open or create the vault
+    /// at the associated path.
+    ///
+    /// # Arguments
+    ///
+    /// * `vault_id` - A string slice that represents the unique identifier of the vault to open.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Self)` - Returns an instance of the vault if the operation succeeds.
+    /// * `Err(anyhow::Error)` - Returns an error if the vault cannot be found, if the registry
+    ///   fails to load, or if the vault cannot be opened or created.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following cases:
+    /// - The `VaultRegistry` fails to load.
+    /// - The vault with the given `vault_id` is not found
+    pub fn open_by_id(vault_id: &str) -> Result<Self> {
+        let registry = VaultRegistry::load()?;
+        let vault_info = registry
+            .get_vault(vault_id)
+            .ok_or_else(|| anyhow!("Vault '{}' not found", vault_id))?;
+
+        Self::open_or_create(Some(&vault_info.path))
+    }
+
+    /// Creates a new vault with the specified parameters.
+    ///
+    /// # Parameters
+    /// - `name`: The name of the vault to be created.
+    /// - `path`: An optional `PathBuf` specifying the directory path of the vault. If `None`, a default path is used.
+    /// - `category`: An instance of `VaultCategory` indicating the category for the vault (e.g., Personal, Business).
+    /// - `description`: An optional description providing additional details about the vault.
+    /// - `master_password`: A reference to a string containing the master password used for securing the vault.
+    ///
+    /// # Returns
+    /// - `Ok((String, Self))`: Returns a tuple containing:
+    ///     - `String`: The unique ID of the newly created vault.
+    ///     - `Self`: The newly initialized vault instance.
+    /// - `Err(_)`: Returns an error if the vault creation or initialization process fails.
+    ///
+    /// # Errors
+    /// This function may return an error in the following cases:
+    /// - If the `VaultRegistry` fails to load.
+    /// - If the vault cannot be created in the registry (e.g., due to duplicate names or invalid paths).
+    /// - If the vault cannot be opened or initialized (e.g., due to issues with the provided path or master password).
+    ///
+    /// # Panics
+    ///
+    /// # Notes
+    /// - The vault ID generated is unique and can be used to reference the vault in the future.
+    /// - Initializing the vault with the master password is required to securely store and access its contents.
+    #[allow(clippy::expect_fun_call)]
+    pub fn create_new_vault(
+        name: String,
+        path: Option<PathBuf>,
+        category: VaultCategory,
+        description: Option<String>,
+        master_password: &str,
+    ) -> Result<(String, Self)> {
+        let mut registry = VaultRegistry::load()?;
+        let vault_id = registry.create_vault(name, path, category, description)?;
+
+        let vault_info = registry
+            .get_vault(&vault_id)
+            .expect(format!("Cannot find vault {vault_id}").as_str());
+        let mut vault = Self::open_or_create(Some(&vault_info.path))?;
+
+        // Initialize the vault with the master password
+        vault.initialize(master_password)?;
+
+        Ok((vault_id, vault))
+    }
+
+    /// Retrieves the vault ID associated with the current instance's database path (`db_path`).
+    ///
+    /// This function searches through the `VaultRegistry` to locate a vault entry whose path matches
+    /// the `db_path` of the current instance. If a match is found, the corresponding vault ID is returned.
+    /// If no match is found, `None` is returned.
+    ///
+    /// # Returns
+    /// - `Ok(Some(String))` if a matching vault ID is found in the registry.
+    /// - `Ok(None)` if no matching vault ID is found.
+    /// - `Err` if there is an issue loading the `VaultRegistry`.
+    ///
+    /// # Errors
+    /// This function may return an error if the `VaultRegistry` cannot be loaded properly.
+    pub fn get_vault_id(&self) -> Result<Option<String>> {
+        let registry = VaultRegistry::load()?;
+        for (id, vault_info) in &registry.vaults {
+            if vault_info.path == self.db_path {
+                return Ok(Some(id.clone()));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Opens the currently active vault.
+    ///
+    /// This function retrieves the active vault from the `VaultRegistry`
+    /// and attempts to open it. If no active vault is found in the registry,
+    /// an error is returned. If a vault exists, it is either opened or created
+    /// at the path associated with the active vault.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Self)` - If the active vault is successfully opened or created.
+    /// * `Err(anyhow::Error)` - If no active vault is found or an error occurs
+    ///   during the opening or creation process.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following cases:
+    /// - The `VaultRegistry` cannot be loaded.
+    /// - No active vault exists in the registry.
+    /// - An error occurs while trying to open or create the vault.
+    pub fn open_active() -> Result<Self> {
+        let registry = VaultRegistry::load()?;
+        let active_vault = registry
+            .get_active_vault()
+            .ok_or_else(|| anyhow!("No active vault found"))?;
+
+        Self::open_or_create(Some(&active_vault.path))
     }
 }
 

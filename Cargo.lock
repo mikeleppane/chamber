@@ -330,6 +330,7 @@ dependencies = [
  "dirs",
  "getrandom 0.3.3",
  "hmac",
+ "ratatui",
  "rusqlite",
  "serde",
  "serde_json",

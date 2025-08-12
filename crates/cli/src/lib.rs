@@ -4,10 +4,309 @@ use chamber_import_export::{ExportFormat, detect_format_from_extension, export_i
 use chamber_password_gen::{
     PasswordConfig, generate_complex_password, generate_memorable_password, generate_simple_password,
 };
-use chamber_vault::{BackupConfig, ItemKind, NewItem, Vault};
+use chamber_vault::{BackupConfig, ItemKind, NewItem, Vault, VaultCategory, VaultManager};
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+
+#[derive(Subcommand, Debug)]
+pub enum VaultCommand {
+    /// List all vaults
+    List,
+    /// Create a new vault
+    Create {
+        name: String,
+        #[arg(long)]
+        path: Option<PathBuf>,
+        #[arg(long, default_value = "personal")]
+        category: String,
+        #[arg(long)]
+        description: Option<String>,
+    },
+    /// Switch to a different vault
+    Switch {
+        /// Vault ID or name
+        vault: String,
+    },
+    /// Show current active vault
+    Active,
+    /// Delete a vault
+    Delete {
+        vault: String,
+        #[arg(long)]
+        delete_file: bool,
+    },
+    /// Import vault from file
+    Import {
+        file: PathBuf,
+        name: String,
+        #[arg(long, default_value = "personal")]
+        category: String,
+        #[arg(long)]
+        copy: bool,
+    },
+    /// Show vault information
+    Info { vault: Option<String> },
+    /// Update vault metadata
+    Update {
+        vault: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        description: Option<String>,
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long)]
+        favorite: Option<bool>,
+    },
+}
+
+/// Handles various vault-related commands by interacting with a `VaultManager` instance.
+///
+/// # Arguments
+/// - `manager`: A mutable reference to the `VaultManager` instance responsible for managing vaults.
+/// - `cmd`: A `VaultCommand` specifying the action to be performed (e.g., listing vaults, creating a vault).
+///
+/// # Returns
+/// - `Result<()>`: Returns `Ok(())` if the command was processed successfully, or an error if something went wrong.
+///
+/// # Supported Commands
+///
+/// 1. **List (`VaultCommand::List`)**:
+///    Lists all the vaults managed by the `VaultManager`. Each vault displays its ID, name, category, path, creation time,
+///    description (if available), active status, and favorite status.
+///
+/// 2. **Create (`VaultCommand::Create`)**:
+///    Creates a new vault with the specified name, path, category, and optional description.
+///    It prompts the user for a master password and generates a new vault with a unique ID.
+///
+///    - `name`: The name of the new vault.
+///    - `path`: The directory where the vault will be stored.
+///    - `category`: A category to organize the vault.
+///    - `description`: (Optional) Additional details about the vault.
+///
+/// 3. **Switch (`VaultCommand::Switch`)**:
+///    Switches the active vault to the one specified by its ID or name. Updates the `VaultManager` to reflect this change.
+///
+/// 4. **Active (`VaultCommand::Active`)**:
+///    Displays information about the currently active vault, including its name, ID, path, category, and description
+///    (if set). If no vault is active, it notifies the user.
+///
+/// 5. **Delete (`VaultCommand::Delete`)**:
+///    Deletes a specified vault either by its ID or name. If `delete_file` is true, the associated vault file is also
+///    removed. The user is prompted for confirmation before deletion.
+///
+///    - `vault`: The ID or name of the vault to be deleted.
+///    - `delete_file`: A flag indicating whether the file on disk should also be deleted.
+///
+/// 6. **Import (`VaultCommand::Import`)**:
+///    Imports an existing vault from a specified file. The user can assign a new name and category, and optionally copy
+///    the vault file to the vault directory.
+///
+///    - `file`: The path to the file to import.
+///    - `name`: The name of the imported vault.
+///    - `category`: A category to assign to the newly imported vault.
+///    - `copy`: A flag indicating whether to copy the file or reference it directly.
+///
+/// 7. **Info (`VaultCommand::Info`)**:
+///    Retrieves and displays detailed information about a vault. If no specific vault is specified, it uses the currently
+///    active vault.
+///
+///    - `vault`: Optionally specify a vault by ID or name. If not provided, the active vault is used.
+///
+/// 8. **Update (`VaultCommand::Update`)**:
+///    Updates the details of a specified vault, including name, description, category, and favorite status.
+///
+///    - `vault`: The ID or name of the vault to update.
+///    - `name`: (Optional) A new name for the vault.
+///    - `description`: (Optional) A new description for the vault.
+///    - `category`: (Optional) A new category for the vault. Will be parsed to validate.
+///    - `favorite`: (Optional) Updates the favorite status.
+///
+/// # Errors
+/// This function may return an error in the following cases:
+/// - Invalid input or data (e.g., an invalid category or vault ID).
+/// - Operational issues such as file read/write errors, or issues updating the `VaultManager`.
+/// - Failure to interact with the user for input or confirmation.
+#[allow(clippy::too_many_lines)]
+pub fn handle_vault_command(manager: &mut VaultManager, cmd: VaultCommand) -> Result<()> {
+    match cmd {
+        VaultCommand::List => {
+            let vaults = manager.list_vaults();
+
+            if vaults.is_empty() {
+                println!("No vaults found.");
+                return Ok(());
+            }
+
+            println!("Available vaults:");
+            for vault in vaults {
+                let status = if vault.is_active { " (active)" } else { "" };
+                let favorite = if vault.is_favorite { " ⭐" } else { "" };
+
+                println!(
+                    "  {} - {} [{}]{}{}",
+                    vault.id, vault.name, vault.category, favorite, status
+                );
+
+                if let Some(desc) = &vault.description {
+                    println!("    {desc}");
+                }
+                println!("    Path: {}", vault.path.display());
+                println!(
+                    "    Created: {}",
+                    vault
+                        .created_at
+                        .format(&time::format_description::well_known::Rfc3339)?
+                );
+                println!();
+            }
+        }
+
+        VaultCommand::Create {
+            name,
+            path,
+            category,
+            description,
+        } => {
+            let category = parse_category(&category);
+            let password = rpassword::prompt_password("Enter master password for new vault: ")?;
+            let vault_id = manager.create_vault(name.clone(), path, category, description, &password)?;
+            println!("Created vault '{name}' with ID: {vault_id}");
+        }
+
+        VaultCommand::Switch { vault } => {
+            // Try to find vault by ID or name
+            let vault_id = find_vault_id(manager, &vault)?;
+            manager.switch_active_vault(&vault_id)?;
+            println!("Switched to vault: {vault_id}");
+        }
+
+        VaultCommand::Active => {
+            if let Some(active) = manager.registry.get_active_vault() {
+                println!("Active vault: {} ({})", active.name, active.id);
+                println!("  Path: {}", active.path.display());
+                println!("  Category: {}", active.category);
+                if let Some(desc) = &active.description {
+                    println!("  Description: {desc}");
+                }
+            } else {
+                println!("No active vault");
+            }
+        }
+
+        VaultCommand::Delete { vault, delete_file } => {
+            let vault_id = find_vault_id(manager, &vault)?;
+
+            print!("Are you sure you want to delete vault '{vault_id}'? ");
+            if delete_file {
+                print!("This will also delete the vault file! ");
+            }
+            print!("(y/N): ");
+
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+
+            if input.trim().to_lowercase() == "y" {
+                manager.delete_vault(&vault_id, delete_file)?;
+                println!("Deleted vault: {vault_id}");
+            } else {
+                println!("Cancelled");
+            }
+        }
+
+        VaultCommand::Import {
+            file,
+            name,
+            category,
+            copy,
+        } => {
+            let category = parse_category(&category);
+            let vault_id = manager.import_vault(&file, name.clone(), category, copy)?;
+            println!("Imported vault '{name}' with ID: {vault_id}");
+        }
+
+        VaultCommand::Info { vault } => {
+            let vault_id = if let Some(v) = vault {
+                find_vault_id(manager, &v)?
+            } else {
+                manager
+                    .registry
+                    .get_active_vault()
+                    .ok_or_else(|| anyhow::anyhow!("No active vault"))?
+                    .id
+                    .clone()
+            };
+
+            if let Some(info) = manager.registry.get_vault(&vault_id) {
+                println!("Vault Information:");
+                println!("  ID: {}", info.id);
+                println!("  Name: {}", info.name);
+                println!("  Category: {}", info.category);
+                println!("  Path: {}", info.path.display());
+                println!(
+                    "  Created: {}",
+                    info.created_at.format(&time::format_description::well_known::Rfc3339)?
+                );
+                println!(
+                    "  Last accessed: {}",
+                    info.last_accessed
+                        .format(&time::format_description::well_known::Rfc3339)?
+                );
+                println!("  Active: {}", info.is_active);
+                println!("  Favorite: {}", info.is_favorite);
+
+                if let Some(desc) = &info.description {
+                    println!("  Description: {desc}");
+                }
+            }
+        }
+
+        VaultCommand::Update {
+            vault,
+            name,
+            description,
+            category,
+            favorite,
+        } => {
+            let vault_id = find_vault_id(manager, &vault)?;
+            let category = category.map(|cat| parse_category(&cat));
+
+            manager.update_vault_info(&vault_id, name, description, category, favorite)?;
+            println!("Updated vault: {vault_id}");
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_category(category: &str) -> VaultCategory {
+    match category.to_lowercase().as_str() {
+        "personal" => VaultCategory::Personal,
+        "work" => VaultCategory::Work,
+        "team" => VaultCategory::Team,
+        "project" => VaultCategory::Project,
+        "testing" => VaultCategory::Testing,
+        "archive" => VaultCategory::Archive,
+        custom => VaultCategory::Custom(custom.to_string()),
+    }
+}
+
+fn find_vault_id(manager: &VaultManager, identifier: &str) -> Result<String> {
+    // First try exact ID match
+    if manager.registry.vaults.contains_key(identifier) {
+        return Ok(identifier.to_string());
+    }
+
+    // Then try name match
+    for (id, vault_info) in &manager.registry.vaults {
+        if vault_info.name.to_lowercase() == identifier.to_lowercase() {
+            return Ok(id.clone());
+        }
+    }
+
+    Err(anyhow::anyhow!("Vault '{}' not found", identifier))
+}
 
 #[derive(Subcommand, Debug)]
 pub enum BackupCommand {
@@ -134,17 +433,6 @@ pub enum BackupCommand {
 ///
 /// * `Ok(())` - If the specified command is successfully executed.
 /// * `Err` - If an error occurs during processing. The specific error depends on the invoked operation.
-///
-/// # Example
-///
-/// ```rust
-/// let vault = Vault::new();
-/// let cmd = BackupCommand::Now { output: None, force: true };
-/// match handle_backup_command(vault, cmd) {
-///     Ok(()) => println!("Backup operation completed successfully."),
-///     Err(e) => eprintln!("Error executing backup command: {:?}", e),
-/// }
-/// ```
 ///
 /// # Errors
 ///
@@ -629,6 +917,9 @@ pub enum Commands {
     },
     #[command(subcommand)]
     Backup(BackupCommand),
+
+    #[command(subcommand)]
+    Registry(VaultCommand),
 }
 
 /// Handles various commands related to a vault system, including initialization,
@@ -933,6 +1224,10 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
         Commands::Backup(backup_cmd) => {
             let vault = Vault::open_or_create(None)?;
             let _ = handle_backup_command(vault, backup_cmd);
+        }
+        Commands::Registry(registry_cmd) => {
+            let mut manager = VaultManager::new()?;
+            handle_vault_command(&mut manager, registry_cmd)?;
         }
     }
     Ok(())

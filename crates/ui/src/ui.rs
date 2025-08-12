@@ -361,6 +361,9 @@ fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
             KeyCode::Char('r') => {
                 app.refresh_items()?;
             }
+            KeyCode::F(2) => {
+                app.open_vault_selector();
+            }
             _ => {}
         },
 
@@ -388,41 +391,6 @@ fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
                     };
                 }
             }
-
-            /*KeyCode::Left | KeyCode::Right if matches!(app.add_focus, AddItemField::Kind) => {
-                let total_kinds = 7;
-                if key.code == KeyCode::Right {
-                    app.add_kind_idx = (app.add_kind_idx + 1) % total_kinds;
-                } else {
-                    app.add_kind_idx = if app.add_kind_idx == 0 {
-                        total_kinds - 1
-                    } else {
-                        app.add_kind_idx - 1
-                    };
-                }
-            }
-            KeyCode::Up if matches!(app.add_focus, AddItemField::Value) => {
-                app.add_value_scroll = app.add_value_scroll.saturating_sub(1);
-            }
-            KeyCode::Down if matches!(app.add_focus, AddItemField::Value) => {
-                let lines_count = app.add_value.lines().count();
-                if lines_count > 5 {
-                    app.add_value_scroll = (app.add_value_scroll + 1).min(lines_count.saturating_sub(5));
-                }
-            }*/
-            /*KeyCode::Backspace => match app.add_focus {
-                AddItemField::Name => {
-                    app.add_name.pop();
-                }
-                AddItemField::Value => {
-                    app.add_value.pop();
-                    let lines_count = app.add_value.lines().count();
-                    if app.add_value_scroll >= lines_count && lines_count > 0 {
-                        app.add_value_scroll = lines_count.saturating_sub(1);
-                    }
-                }
-                AddItemField::Kind => {}
-            },*/
             KeyCode::Char(c) => {
                 // All regular character input (Ctrl combinations handled above)
                 match app.add_focus {
@@ -481,7 +449,7 @@ fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
             KeyCode::Esc => {
                 app.screen = Screen::Main;
             }
-            KeyCode::Char('t') => {
+            KeyCode::Char('t') | KeyCode::Enter => {
                 app.toggle_value_visibility();
             }
             KeyCode::Char('c') => {
@@ -632,6 +600,12 @@ fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
             }
             _ => {}
         },
+        Screen::VaultSelector => {
+            if let Some(action) = app.vault_selector.handle_input(key) {
+                app.handle_vault_action(action)?;
+            }
+            return Ok(false);
+        }
     }
 
     Ok(false)
@@ -681,7 +655,12 @@ fn draw(f: &mut Frame, app: &mut App) {
             draw_main(f, app, root[1]);
             draw_import_export(f, app);
         }
+        Screen::VaultSelector => draw_vault_selector(f, app, root[1]),
     }
+}
+
+fn draw_vault_selector(f: &mut Frame, app: &mut App, area: Rect) {
+    app.vault_selector.render(f, area);
 }
 
 fn draw_header(f: &mut Frame, area: Rect) {
@@ -1128,6 +1107,7 @@ fn get_status_message_and_style(app: &App) -> (String, Style) {
                 crate::app::ImportExportMode::Export => "Export items to file".to_string(),
                 crate::app::ImportExportMode::Import => "Import items from file".to_string(),
             },
+            Screen::VaultSelector => "Select a vault to open".to_string(),
         };
         (context_message, Style::default().fg(c_text_dim()))
     }
@@ -1191,6 +1171,11 @@ fn get_key_hints_for_screen(app: &App) -> Vec<Span<'static>> {
             add_hint(&mut spans, "Tab", "Next Field", false);
             add_hint(&mut spans, "Enter", "Execute", true);
             add_hint(&mut spans, "Esc", "Cancel", false);
+        }
+        Screen::VaultSelector => {
+            add_hint(&mut spans, "Tab", "Next Field", false);
+            add_hint(&mut spans, "Enter", "Select", true);
+            add_hint(&mut spans, "Esc", "Close", false);
         }
     }
 
@@ -1903,10 +1888,7 @@ fn draw_view_item(f: &mut Frame, app: &App) {
         f.render_widget(updated_content, inner[4]);
 
         let actions = Paragraph::new(Line::from(vec![
-            Span::styled(
-                "[Space/Enter]",
-                Style::default().fg(c_warn()).add_modifier(Modifier::BOLD),
-            ),
+            Span::styled("[t/Enter]", Style::default().fg(c_warn()).add_modifier(Modifier::BOLD)),
             Span::styled(" Toggle visibility   ", Style::default().fg(c_text_dim())),
             Span::styled("[c]", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
             Span::styled(" Copy   ", Style::default().fg(c_text_dim())),

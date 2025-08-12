@@ -1,8 +1,9 @@
 use crate::app;
+use crate::vault_selector::{VaultAction, VaultSelector, VaultSelectorMode};
 use anyhow::{Result, anyhow};
 use chamber_import_export::{ExportFormat, export_items, import_items};
 use chamber_password_gen::PasswordConfig;
-use chamber_vault::{Item, ItemKind, NewItem, Vault};
+use chamber_vault::{Item, ItemKind, NewItem, Vault, VaultManager};
 use ratatui::prelude::Style;
 use ratatui::style::Color;
 use std::path::PathBuf;
@@ -18,6 +19,7 @@ pub enum Screen {
     ChangeMaster,
     GeneratePassword,
     ImportExport,
+    VaultSelector,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -90,6 +92,9 @@ pub enum StatusType {
 
 pub struct App {
     pub vault: Vault,
+    pub vault_manager: VaultManager,
+    pub vault_selector: VaultSelector,
+
     pub screen: Screen,
     pub master_input: String,
     pub master_confirm_input: String,
@@ -196,16 +201,41 @@ impl App {
     /// - `ie_formats`: A vector containing supported file formats for import/export (e.g., "json", "csv").
     ///
     /// # Errors
-    /// Returns an error if the vault cannot be opened or created successfully.
+    /// Return an error if the vault cannot be opened or created successfully.
+    ///
+    /// # Panics
     pub fn new() -> Result<Self> {
-        let vault = Vault::open_or_create(None)?;
-        let master_mode_is_setup = !vault.is_initialized();
+        let vault_manager = VaultManager::new()?;
+        let mut vault_selector = VaultSelector::new();
+        vault_selector.load_vaults(&vault_manager);
+
+        let (vault, should_setup) = if let Some(active_vault_id) = &vault_manager.registry.active_vault_id {
+            let message = format!("Active vault: {active_vault_id} not found");
+            let vault_info = vault_manager.registry.get_vault(active_vault_id).expect(&message);
+            let vault = chamber_vault::Vault::open_or_create(Some(&vault_info.path))?;
+
+            // Check if the vault is initialized
+            if vault.is_initialized() {
+                (vault, false) // Vault exists and is initialized, normal unlock flow
+            } else {
+                (vault, true) // Vault exists but not initialized, setup flow
+            }
+        } else {
+            // No active vault, create a default one that needs setup
+            let vault = chamber_vault::Vault::open_default()?;
+            let initialized = vault.is_initialized();
+            (vault, !initialized)
+        };
+
         Ok(Self {
             vault,
+            vault_manager,
+            vault_selector,
+
             screen: Screen::Unlock,
             master_input: String::new(),
             master_confirm_input: String::new(),
-            master_mode_is_setup,
+            master_mode_is_setup: should_setup,
             unlock_focus: UnlockField::Master,
             error: None,
             items: vec![],
@@ -309,28 +339,53 @@ impl App {
     /// - Modifies the state of `screen`, `master_mode_is_setup`, and `vault` upon successful execution.
     pub fn unlock(&mut self) -> Result<()> {
         if self.master_mode_is_setup {
-            if self.master_input.is_empty() || self.master_confirm_input.is_empty() {
-                self.error = Some("Please enter and confirm your master key.".into());
-                return Ok(());
-            }
+            // Setup mode - initialize the vault
             if self.master_input != self.master_confirm_input {
-                self.error = Some("Master keys do not match.".into());
+                self.error = Some("Passwords do not match".to_string());
                 return Ok(());
             }
-            if let Err(e) = Self::validate_master_strength(&self.master_input) {
-                self.error = Some(e.to_string());
+
+            if self.master_input.is_empty() {
+                self.error = Some("Master password cannot be empty".to_string());
                 return Ok(());
             }
+
+            Self::validate_master_strength(&self.master_input)?;
+
             self.vault.initialize(&self.master_input)?;
+
+            self.vault.unlock(&self.master_input)?;
+
+            for vault_info in self.vault_manager.registry.vaults.values() {
+                let mut vault = chamber_vault::Vault::open_or_create(Some(&vault_info.path))?;
+                if !vault.is_initialized() {
+                    vault.initialize(&self.master_input)?;
+                }
+            }
+
             self.master_mode_is_setup = false;
+            self.screen = Screen::Main;
+            self.error = None;
+            self.refresh_items()?;
+        } else {
+            // Normal unlock mode
+            if self.master_input.is_empty() {
+                self.error = Some("Master password cannot be empty".to_string());
+                return Ok(());
+            }
+
+            match self.vault.unlock(&self.master_input) {
+                Ok(()) => {
+                    self.screen = Screen::Main;
+                    self.error = None;
+                    self.refresh_items()?;
+                }
+                Err(_) => {
+                    self.error = Some("Invalid master key".to_string());
+                }
+            }
         }
-        self.vault.unlock(&self.master_input).map_err(|e| {
-            self.error = Some(format!("Unlock failed: {e}"));
-            e
-        })?;
-        self.refresh_items()?;
-        self.screen = Screen::Main;
-        self.error = None;
+
         Ok(())
     }
 
@@ -989,6 +1044,240 @@ impl App {
         } else {
             self.set_status("Failed to access clipboard".to_string(), StatusType::Error);
             Ok(())
+        }
+    }
+
+    pub fn open_vault_selector(&mut self) {
+        self.vault_selector.load_vaults(&self.vault_manager);
+        self.vault_selector.show();
+        self.screen = Screen::VaultSelector;
+    }
+
+    /// Handles various actions related to vault management.
+    ///
+    /// This function processes the provided `VaultAction` and executes the corresponding logic
+    /// to manage vaults, such as creating, updating, deleting, importing, and more.
+    ///
+    /// # Arguments
+    ///
+    /// * `action` - A `VaultAction` enum that specifies the action to be performed. Each variant
+    ///   of `VaultAction` corresponds to a specific vault-related operation.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns `Ok(())` if the action was processed successfully; otherwise,
+    ///   an error is returned if any operation fails.
+    ///
+    /// # `VaultAction` Variants
+    ///
+    /// - `VaultAction::Switch(vault_id)`
+    ///   Switches to the specified vault by its ID.
+    ///
+    /// - `VaultAction::Create { name, description, category }`
+    ///   Creates a new vault with the provided name, description, and category.
+    ///
+    /// - `VaultAction::Update { vault_id, name, description, category, favorite }`
+    ///   Updates an existing vault with the given parameters, including optional fields like the
+    ///   vault name, description, category, and favorite status.
+    ///
+    /// - `VaultAction::Delete { vault_id, delete_file }`
+    ///   Deletes a vault specified by its ID. If `delete_file` is true, related files are also deleted.
+    ///
+    /// - `VaultAction::Import { path }`
+    ///   Imports a vault from a specified file path.
+    ///
+    /// - `VaultAction::Refresh`
+    ///   Reloads the list of available vaults and updates the UI to reflect any changes. Sets
+    ///   a success status message indicating the vaults have been refreshed.
+    ///
+    /// - `VaultAction::Close`
+    ///   Hides the vault selector and switches back to the main screen.
+    ///
+    /// - `VaultAction::ShowHelp`
+    ///   Displays help information. (This action may be handled or ignored based on needs.)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Switching to a vault fails.
+    /// - The requested vault action encounters an issue (e.g., file access issues during imports or
+    ///   failures in vault creation/deletion).
+    pub fn handle_vault_action(&mut self, action: VaultAction) -> Result<()> {
+        match action {
+            VaultAction::Switch(vault_id) => {
+                self.switch_to_vault(&vault_id)?;
+            }
+            VaultAction::Create {
+                name,
+                description,
+                category,
+            } => {
+                self.create_vault(&name, description, &category);
+            }
+            VaultAction::Update {
+                vault_id,
+                name,
+                description,
+                category,
+                favorite,
+            } => {
+                self.update_vault(vault_id, name, description, category, favorite);
+            }
+            VaultAction::Delete { vault_id, delete_file } => {
+                self.delete_vault(&vault_id, delete_file);
+            }
+            VaultAction::Import { path } => {
+                self.import_vault(&path);
+            }
+            VaultAction::Refresh => {
+                self.vault_selector.load_vaults(&self.vault_manager);
+                self.set_status("Vaults refreshed".to_string(), StatusType::Success);
+            }
+            VaultAction::Close => {
+                self.vault_selector.hide();
+                self.screen = Screen::Main;
+            }
+            VaultAction::ShowHelp => {
+                // You can handle help display here or ignore it
+            }
+        }
+        Ok(())
+    }
+
+    fn switch_to_vault(&mut self, vault_id: &str) -> Result<()> {
+        // First, switch the active vault in the registry
+        self.vault_manager.switch_active_vault(vault_id)?;
+
+        // Try to open the vault with the current master password
+        match self.vault_manager.open_vault(vault_id, &self.master_input) {
+            Ok(()) => {
+                // Successfully opened vault in the manager
+                // Now we need to create our own unlocked instance
+                let vault_info = self.vault_manager.registry.get_vault(vault_id).unwrap();
+                let mut new_vault = chamber_vault::Vault::open_or_create(Some(&vault_info.path))?;
+                new_vault.unlock(&self.master_input)?;
+
+                // Replace our vault with the newly unlocked one
+                self.vault = new_vault;
+                self.refresh_items()?;
+                self.set_status(format!("Switched to vault: {vault_id}"), StatusType::Success);
+            }
+            Err(_) => {
+                // This vault has a different master password
+                self.vault_selector.error_message = Some(format!(
+                    "Vault '{vault_id}' was created with a different master password. \
+                Please delete this vault and create a new one, or use the master password change feature to migrate it."
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn create_vault(&mut self, name: &str, description: Option<String>, category: &str) {
+        // Parse category
+        let vault_category = match category.to_lowercase().as_str() {
+            "personal" => chamber_vault::VaultCategory::Personal,
+            "work" => chamber_vault::VaultCategory::Work,
+            "team" => chamber_vault::VaultCategory::Team,
+            "project" => chamber_vault::VaultCategory::Project,
+            "testing" => chamber_vault::VaultCategory::Testing,
+            "archive" => chamber_vault::VaultCategory::Archive,
+            custom => chamber_vault::VaultCategory::Custom(custom.to_string()),
+        };
+
+        // In a real implementation, you'd prompt for a password
+        let password = &self.master_input;
+
+        // Validate that we have a password
+        if password.is_empty() {
+            self.vault_selector.error_message = Some("Master password is required to create vault".to_string());
+        }
+
+        match self
+            .vault_manager
+            .create_vault((name).to_string(), None, vault_category, description, password)
+        {
+            Ok(_vault_id) => {
+                self.vault_selector.load_vaults(&self.vault_manager);
+                self.vault_selector.mode = VaultSelectorMode::Select;
+                self.set_status(format!("Created vault: {name}"), StatusType::Success);
+            }
+            Err(e) => {
+                self.vault_selector.error_message = Some(format!("Failed to create vault: {e}"));
+            }
+        }
+    }
+
+    fn update_vault(
+        &mut self,
+        vault_id: String,
+        name: Option<String>,
+        description: Option<String>,
+        category: Option<String>,
+        favorite: Option<bool>,
+    ) {
+        let vault_category = category.map(|cat_str| match cat_str.to_lowercase().as_str() {
+            "personal" => chamber_vault::VaultCategory::Personal,
+            "work" => chamber_vault::VaultCategory::Work,
+            "team" => chamber_vault::VaultCategory::Team,
+            "project" => chamber_vault::VaultCategory::Project,
+            "testing" => chamber_vault::VaultCategory::Testing,
+            "archive" => chamber_vault::VaultCategory::Archive,
+            custom => chamber_vault::VaultCategory::Custom(custom.to_string()),
+        });
+
+        match self
+            .vault_manager
+            .update_vault_info(&vault_id, name.clone(), description, vault_category, favorite)
+        {
+            Ok(()) => {
+                self.vault_selector.load_vaults(&self.vault_manager);
+                self.vault_selector.mode = VaultSelectorMode::Select;
+                self.set_status(
+                    format!("Updated vault: {}", name.unwrap_or(vault_id)),
+                    StatusType::Success,
+                );
+            }
+            Err(e) => {
+                self.vault_selector.error_message = Some(format!("Failed to update vault: {e}"));
+            }
+        }
+    }
+
+    fn delete_vault(&mut self, vault_id: &str, delete_file: bool) {
+        match self.vault_manager.delete_vault(vault_id, delete_file) {
+            Ok(()) => {
+                self.vault_selector.load_vaults(&self.vault_manager);
+                self.vault_selector.mode = VaultSelectorMode::Select;
+                self.set_status(format!("Deleted vault: {vault_id}"), StatusType::Success);
+            }
+            Err(e) => {
+                self.set_status(format!("Failed to delete vault: {e}"), StatusType::Error);
+            }
+        }
+    }
+
+    fn import_vault(&mut self, path: &str) {
+        let path_buf = std::path::PathBuf::from(&path);
+        let name = path_buf
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Imported Vault")
+            .to_string();
+
+        match self
+            .vault_manager
+            .import_vault(&path_buf, name.clone(), chamber_vault::VaultCategory::Personal, true)
+        {
+            Ok(_vault_id) => {
+                self.vault_selector.load_vaults(&self.vault_manager);
+                self.vault_selector.mode = VaultSelectorMode::Select;
+                self.set_status(format!("Imported vault: {name}"), StatusType::Success);
+            }
+            Err(e) => {
+                self.vault_selector.error_message = Some(format!("Failed to import vault: {e}"));
+            }
         }
     }
 }

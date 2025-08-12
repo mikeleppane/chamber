@@ -17,3 +17,4 @@ sha2 = { workspace = true }
 time = { workspace = true }
 zeroize = { workspace = true }
 dirs = {workspace = true}
+ratatui = {workspace = true}

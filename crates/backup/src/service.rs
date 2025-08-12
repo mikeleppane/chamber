@@ -47,12 +47,6 @@ impl<V: VaultOperations + Send + 'static> BackgroundService<V> {
     /// - If acquiring the lock on `self.running` or `self.backup_manager` fails.
     /// - If any lock operation encounters a thread-poisoning error.
     ///
-    /// ## Usage
-    /// ```rust
-    /// let my_service = BackupService::new();
-    /// my_service.start(); // Starts the backup monitoring thread
-    /// ```
-    ///
     /// ## Thread Safety
     /// - The function ensures proper synchronization by using a `Mutex` for the
     ///   `running` flag and `backup_manager`.
