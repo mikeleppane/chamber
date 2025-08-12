@@ -71,7 +71,7 @@ and other secrets with strong cryptographic guarantees.
 
 ### Installation
 #### From Source
-``` bash
+```bash
 # Clone the repository
 git clone https://github.com/your-org/chamber.git
 cd chamber
@@ -83,7 +83,7 @@ cargo build --release
 ./target/release/chamber
 ```
 #### Using Cargo
-``` bash
+```bash
 # Install directly from Git
 cargo install --git https://github.com/your-org/chamber.git
 
@@ -92,30 +92,30 @@ chamber
 ```
 ### Quick Start
 1. **Initialize a new vault**:
-``` bash
+```bash
    chamber init
 ```
 1. **Create your first secret**:
-``` bash
+```bash
    chamber add --name "github-token" --kind apikey --value "your-token-here"
 ```
 1. **List your secrets**:
-``` bash
+```bash
    chamber list
 ```
 1. **Launch the interactive UI**:
-``` bash
+```bash
    chamber ui
 ```
 ## 🛠️ Development Setup
 ### Environment Setup
 1. **Install Rust toolchain**:
-``` bash
+```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    rustup update
 ```
 1. **Clone and setup the project**:
-``` bash
+```bash
    git clone https://github.com/your-org/chamber.git
    cd chamber
    
@@ -123,12 +123,12 @@ chamber
    cargo install cargo-nextest cargo-watch
 ```
 1. **Verify installation**:
-``` bash
+```bash
    cargo check --all-targets
    cargo test
 ```
 ### Development Workflow
-``` bash
+```bash
 # Watch for changes and run tests
 cargo watch -x "test --all-features"
 
@@ -142,7 +142,7 @@ cargo clippy --all-targets --all-features -D warnings
 cargo nextest run
 ```
 ### Project Structure
-``` text
+```text
 chamber/
 ├── crates/
 │   ├── vault/           # Core vault logic and crypto
@@ -560,7 +560,7 @@ chamber backup configure \
 ### 📁 Backup File Format
 #### Filename Convention
 Backups use a standardized naming convention:
-``` 
+```bash
 chamber_backup_YYYY-MM-DD_HH-MM-SSZ_TIMESTAMP.format[.gz]
 ```
 Examples:
@@ -891,7 +891,7 @@ chamber registry active
 chamber registry list
 ```
 Sample output:
-``` 
+```bash
 📁 Available Vaults:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ID: personal-main           Name: Personal Main
@@ -915,7 +915,7 @@ Path: /home/user/projects/alpha/.chamber/vault.db
 chamber registry info work-secrets
 ```
 Sample output:
-``` 
+```bash 
 🔐 Vault Information: work-secrets
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    Name: Corporate Credentials
@@ -958,7 +958,7 @@ By default, Chamber stores vault files in:
 ## 🧪 Testing
 Chamber includes comprehensive test coverage across all components:
 ### Running Tests
-``` bash
+```bash
 # Run all tests
 cargo test
 
@@ -982,7 +982,7 @@ cargo tarpaulin --out html
 - **CLI Tests**: Test command-line interface behavior
 
 ### Performance Tests
-``` bash
+```bash
 # Benchmark cryptographic operations
 cargo bench --bench crypto
 
