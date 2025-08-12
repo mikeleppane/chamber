@@ -107,6 +107,7 @@ pub struct NewItem {
     pub value: String,
 }
 
+#[derive(Debug)]
 pub struct Vault {
     db: Db,
     key: Option<KeyMaterial>,

@@ -3,6 +3,7 @@ use anyhow::{anyhow, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use time::OffsetDateTime;
 
+#[derive(Debug)]
 pub struct Db {
     conn: Connection,
 }
