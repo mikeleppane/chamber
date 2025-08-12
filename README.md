@@ -442,7 +442,8 @@ name,kind,value,created_at,updated_at
 ```
 
 ## Chamber Backup System
-Chamber provides a comprehensive backup system that ensures your sensitive data is automatically protected with configurable retention policies, multiple export formats, and integrity verification.
+Chamber provides a comprehensive backup system that ensures your sensitive data is automatically protected with 
+configurable retention policies, multiple export formats, and integrity verification.
 ### 🔄 Backup Features
 #### **Automated Backup System**
 - **Scheduled Backups**: Configurable interval-based automatic backups (hourly, daily, weekly)
@@ -569,7 +570,7 @@ Examples:
 
 #### Chamber Backup Format
 The enhanced Chamber backup format includes metadata:
-``` json
+```json
 {
   "version": "1.0",
   "exported_at": "2024-01-15T14:30:00Z",
@@ -610,7 +611,7 @@ The background service is automatically started when you launch the TUI mode wit
 
 ### 📊 Backup Status and Monitoring
 #### Status Command Output
-``` bash
+```bash
 $ chamber backup status
 🔒 Backup Configuration Status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -628,7 +629,7 @@ $ chamber backup status
    Size: 2048 bytes
 ```
 #### Listing Backups
-``` bash
+```bash
 $ chamber backup list --verbose
 Found 7 backup(s):
 
@@ -687,7 +688,7 @@ chamber registry create "team-shared"
 ``` 
 
 #### List and Manage Vaults
-``` bash
+```bash
 # List all available vaults
 chamber registry list
 # Show detailed information about a specific vault

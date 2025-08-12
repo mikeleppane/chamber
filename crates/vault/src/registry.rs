@@ -133,7 +133,6 @@ impl VaultRegistry {
 
         self.vaults.insert(vault_id.clone(), vault_info);
         self.active_vault_id = Some(vault_id);
-
     }
 
     fn default_registry_path() -> Result<PathBuf> {

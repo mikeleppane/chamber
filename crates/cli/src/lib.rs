@@ -480,6 +480,7 @@ pub fn handle_backup_command(vault: Vault, cmd: BackupCommand) -> Result<()> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_configure(
     vault: &Vault,
     enable: Option<bool>,
