@@ -11,32 +11,38 @@ use std::str::FromStr;
 
 #[derive(Subcommand, Debug)]
 pub enum VaultCommand {
-    /// List all vaults
+    /// List all available vaults with their status and information
     List,
-    /// Create a new vault
+    /// Create a new vault with separate encryption and organization
     Create {
+        /// Name for the new vault (e.g., "work-secrets", "personal")
         name: String,
+        /// Custom file path for vault storage (optional)
         #[arg(long)]
         path: Option<PathBuf>,
+        /// Vault category for organization: personal, work, team, project, testing, archive
         #[arg(long, default_value = "personal")]
         category: String,
+        /// Optional description explaining the vault's purpose
         #[arg(long)]
         description: Option<String>,
     },
-    /// Switch to a different vault
+    /// Switch to a different vault (makes it the active vault for operations)
     Switch {
-        /// Vault ID or name
+        /// Vault ID or name to switch to
         vault: String,
     },
-    /// Show current active vault
+    /// Show information about the currently active vault
     Active,
-    /// Delete a vault
+    /// Delete a vault and optionally remove its database file
     Delete {
+        /// Vault ID or name to delete
         vault: String,
+        /// Also delete the vault database file from disk (DESTRUCTIVE)
         #[arg(long)]
         delete_file: bool,
     },
-    /// Import vault from file
+    /// Import an existing vault database file into the vault registry
     Import {
         file: PathBuf,
         name: String,
@@ -49,11 +55,14 @@ pub enum VaultCommand {
     Info { vault: Option<String> },
     /// Update vault metadata
     Update {
+        /// Path to the vault database file to import
         vault: String,
+        /// Display name for the imported vault
         #[arg(long)]
         name: Option<String>,
         #[arg(long)]
         description: Option<String>,
+        /// Category for organizing the imported vault
         #[arg(long)]
         category: Option<String>,
         #[arg(long)]
@@ -857,7 +866,26 @@ fn verify_backup_file(backup_path: &std::path::Path) -> Result<()> {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "chamber", about = "A secure TUI/CLI secrets manager")]
+#[command(
+    name = "chamber",
+    about = "A secure, local-first secrets manager with encrypted storage and multiple vault support",
+    long_about = "Chamber is a secure secrets manager that stores your passwords, API keys, and other \
+                  sensitive information using strong encryption. All data is stored locally with \
+                  zero-knowledge architecture.\n\n\
+                  Features:\n\
+                  • ChaCha20-Poly1305 authenticated encryption\n\
+                  • Argon2 key derivation for master passwords\n\
+                  • Multiple vault support for organization\n\
+                  • Automatic backup system with retention policies\n\
+                  • Import/export in JSON, CSV, and Chamber formats\n\
+                  • Terminal UI and command-line interface\n\
+                  • Secure password generation\n\n\
+                  Quick start:\n\
+                  1. chamber init              # Initialize your first vault\n\
+                  2. chamber add -n \"github-token\" -k apikey -v \"your-token\"\n\
+                  3. chamber list              # View your secrets\n\
+                  4. chamber ui                # Launch terminal interface"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -865,63 +893,100 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Initialize a new Chamber vault with master password encryption
     Init,
+
+    /// Add a new secret item to the vault
     Add {
+        /// Name/identifier for the secret (e.g., "github-token", "database-password")
         #[arg(short, long)]
         name: String,
+        /// Type of secret: password, apikey, envvar, sshkey, certificate, database, note
         #[arg(short, long, default_value = "note")]
         kind: String,
+        /// The secret value to store (will be encrypted)
         #[arg(short, long)]
         value: String,
     },
+
+    /// List all secrets in the vault (names and types only)
     List,
+
+    /// Retrieve and display a specific secret by name
     Get {
+        /// Name of the secret to retrieve
         #[arg(short, long)]
         name: String,
     },
+
+    /// Generate secure passwords with customizable options
     Generate {
+        /// Password length (default: 16 characters)
         #[arg(short, long, default_value = "16")]
         length: usize,
+        /// Generate simple alphanumeric password
         #[arg(long)]
         simple: bool,
+        /// Generate complex password with all character types
         #[arg(long)]
         complex: bool,
+        /// Generate memorable password with words
         #[arg(long)]
         memorable: bool,
+        /// Exclude uppercase letters (A-Z)
         #[arg(long)]
         no_uppercase: bool,
+        /// Exclude lowercase letters (a-z)
         #[arg(long)]
         no_lowercase: bool,
+        /// Exclude digits (0-9)
         #[arg(long)]
         no_digits: bool,
+        /// Exclude symbols (!@#$%^&*)
         #[arg(long)]
         no_symbols: bool,
+        /// Include ambiguous characters (0/O, 1/l/I)
         #[arg(long)]
         include_ambiguous: bool,
+        /// Number of passwords to generate
         #[arg(short, long)]
         count: Option<usize>,
     },
+
+    /// Export vault contents to a file for backup or migration
     Export {
+        /// Output file path (e.g., backup.json, secrets.csv)
         #[arg(short, long)]
         output: PathBuf,
+        /// Export format: json, csv, backup (auto-detected from file extension)
         #[arg(short, long)]
         format: Option<String>,
+        /// Include creation/modification timestamps in export
         #[arg(long)]
         include_metadata: bool,
     },
+
+    /// Import secrets from a file into the vault
     Import {
+        /// Input file path containing secrets to import
         #[arg(short, long)]
         input: PathBuf,
+        /// Import format: json, csv, backup (auto-detected from file extension)
         #[arg(short, long)]
         format: Option<String>,
+        /// Preview import without making changes
         #[arg(long)]
         dry_run: bool,
+        /// Skip items that already exist in the vault
         #[arg(long)]
         skip_duplicates: bool,
     },
+
+    /// Backup management commands for automatic data protection
     #[command(subcommand)]
     Backup(BackupCommand),
 
+    /// Multiple vault management commands for organizing secrets
     #[command(subcommand)]
     Registry(VaultCommand),
 }
