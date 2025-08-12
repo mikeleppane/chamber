@@ -205,26 +205,15 @@ impl App {
     ///
     /// # Panics
     pub fn new() -> Result<Self> {
+        let vault = Vault::open_default()?;
         let vault_manager = VaultManager::new()?;
-        let mut vault_selector = VaultSelector::new();
-        vault_selector.load_vaults(&vault_manager);
+        let vault_selector = VaultSelector::new();
 
-        let (vault, should_setup) = if let Some(active_vault_id) = &vault_manager.registry.active_vault_id {
-            let message = format!("Active vault: {active_vault_id} not found");
-            let vault_info = vault_manager.registry.get_vault(active_vault_id).expect(&message);
-            let vault = chamber_vault::Vault::open_or_create(Some(&vault_info.path))?;
-
-            // Check if the vault is initialized
-            if vault.is_initialized() {
-                (vault, false) // Vault exists and is initialized, normal unlock flow
-            } else {
-                (vault, true) // Vault exists but not initialized, setup flow
-            }
+        // Determine initial screen based on vault state
+        let (_, master_mode_is_setup) = if vault.is_initialized() {
+            (Screen::Unlock, false) // Just unlock, no setup
         } else {
-            // No active vault, create a default one that needs setup
-            let vault = chamber_vault::Vault::open_default()?;
-            let initialized = vault.is_initialized();
-            (vault, !initialized)
+            (Screen::Unlock, true) // Setup mode (create master password)
         };
 
         Ok(Self {
@@ -235,7 +224,7 @@ impl App {
             screen: Screen::Unlock,
             master_input: String::new(),
             master_confirm_input: String::new(),
-            master_mode_is_setup: should_setup,
+            master_mode_is_setup,
             unlock_focus: UnlockField::Master,
             error: None,
             items: vec![],
@@ -339,50 +328,30 @@ impl App {
     /// - Modifies the state of `screen`, `master_mode_is_setup`, and `vault` upon successful execution.
     pub fn unlock(&mut self) -> Result<()> {
         if self.master_mode_is_setup {
-            // Setup mode - initialize the vault
+            // Setup mode: create new master password (needs confirmation)
             if self.master_input != self.master_confirm_input {
                 self.error = Some("Passwords do not match".to_string());
                 return Ok(());
             }
 
-            if self.master_input.is_empty() {
-                self.error = Some("Master password cannot be empty".to_string());
-                return Ok(());
-            }
-
             Self::validate_master_strength(&self.master_input)?;
 
+            // Initialize the vault
             self.vault.initialize(&self.master_input)?;
+        }
 
-            self.vault.unlock(&self.master_input)?;
-
-            for vault_info in self.vault_manager.registry.vaults.values() {
-                let mut vault = chamber_vault::Vault::open_or_create(Some(&vault_info.path))?;
-                if !vault.is_initialized() {
-                    vault.initialize(&self.master_input)?;
-                }
-            }
-
-            self.master_mode_is_setup = false;
+        // Always try to unlock (works for both setup and normal mode)
+        if let Ok(()) = self.vault.unlock(&self.master_input) {
+            self.refresh_items()?;
             self.screen = Screen::Main;
             self.error = None;
-            self.refresh_items()?;
+            self.master_input.clear();
+            self.master_confirm_input.clear();
         } else {
-            // Normal unlock mode
-            if self.master_input.is_empty() {
-                self.error = Some("Master password cannot be empty".to_string());
-                return Ok(());
-            }
-
-            match self.vault.unlock(&self.master_input) {
-                Ok(()) => {
-                    self.screen = Screen::Main;
-                    self.error = None;
-                    self.refresh_items()?;
-                }
-                Err(_) => {
-                    self.error = Some("Invalid master key".to_string());
-                }
+            self.error = Some("Invalid master password".to_string());
+            self.master_input.clear();
+            if self.master_mode_is_setup {
+                self.master_confirm_input.clear();
             }
         }
 

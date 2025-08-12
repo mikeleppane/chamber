@@ -155,28 +155,72 @@ chamber/
 └── examples/           # Usage examples
 ```
 ## 🏗️ Architecture
-Chamber follows a modular architecture with clear separation of concerns:
+Chamber follows a modular architecture with a clear separation of concerns:
 ``` mermaid
 graph TB
     CLI[CLI Interface] --> Core[Chamber Core]
     TUI[Terminal UI] --> Core
     Core --> Vault[Vault Module]
     Core --> Import[Import/Export]
+    Core --> Backup[Backup Manager]
+    Core --> VaultMgr[Multiple Vault Manager]
     Vault --> Crypto[Crypto Layer]
     Vault --> Storage[Storage Layer]
+    VaultMgr --> VaultA[Vault A]
+    VaultMgr --> VaultB[Vault B]
+    VaultMgr --> VaultN[Vault N...]
+    VaultA --> StorageA[(SQLite A)]
+    VaultB --> StorageB[(SQLite B)]
+    VaultN --> StorageN[(SQLite N)]
     Storage --> SQLite[(SQLite Database)]
+    Backup --> BackupStorage[(Backup Files)]
+    Backup --> Scheduler[Backup Scheduler]
+    Backup --> Retention[Retention Policy]
     Crypto --> Argon2[Key Derivation]
     Crypto --> ChaCha20[Encryption]
+    
+    style Backup fill:#e1f5fe
+    style VaultMgr fill:#f3e5f5
+    style BackupStorage fill:#e8f5e8
+    style Scheduler fill:#fff3e0
+    style Retention fill:#fce4ec
 ```
 ### Core Components
 #### Vault Module (`crates/vault`)
 - **Purpose**: Core business logic and data models
-- **Key Types**: `Vault`,`Item`,`ItemKind`,`NewItem`
+- **Key Types**: `Vault`, `Item`, `ItemKind`, `NewItem`
 - **Responsibilities**:
   - Vault lifecycle management (create, initialize, unlock)
   - CRUD operations for secrets
   - Master key rotation
   - Data encryption/decryption
+
+#### Multiple Vault Manager
+- **Purpose**: Manage multiple independent vaults
+- **Key Features**:
+  - Vault discovery and registration
+  - Context switching between vaults
+  - Per-vault configuration management
+  - Concurrent vault operations
+
+- **Use Cases**:
+  - Personal vs. work secrets separation
+  - Project-specific vault organization
+  - Team collaboration with shared vaults
+
+#### Backup Manager
+- **Purpose**: Automated backup and recovery operations
+- **Key Components**:
+  - **Backup Scheduler**: Interval-based automatic backup creation
+  - **Retention Policy**: Automatic cleanup of old backups based on configured limits
+  - **Format Support**: Multiple export formats (JSON, CSV, Chamber Backup)
+  - **Integrity Verification**: Backup validation and corruption detection
+
+- **Features**:
+  - Background service for non-intrusive operation
+  - Configurable backup intervals and retention
+  - Compression and encryption support
+  - Cross-vault backup capabilities
 
 #### Crypto Layer
 - **Key Derivation**: Argon2id with configurable parameters
@@ -185,9 +229,9 @@ graph TB
 - **Memory Safety**: Automatic zeroization of sensitive data
 
 #### Storage Layer
-- : SQLite with WAL mode for better concurrency **Database**
+- **Database**: SQLite with WAL mode for better concurrency
 - **Schema**:
-  - : Stores encrypted vault key and KDF parameters `meta`
+  - `meta`: Stores encrypted vault key and KDF parameters
   - : Encrypted secrets with metadata `items`
 
 - **Features**: ACID transactions, foreign key constraints, automatic migrations
@@ -199,24 +243,89 @@ graph TB
   - Real-time search and filtering
   - Secure password input
   - Clipboard integration
+  - Multi-vault navigation
+  - Backup status monitoring
 
 ### Data Flow
 ``` mermaid
 sequenceDiagram
     participant User
     participant CLI
+    participant VaultMgr
     participant Vault
+    participant Backup
     participant Crypto
     participant Storage
 
-    User->>CLI: chamber add --name "secret"
+    User->>CLI: chamber add --name "secret" --vault "work"
+    CLI->>VaultMgr: select_vault("work")
+    VaultMgr->>Vault: get_vault("work")
     CLI->>Vault: create_item(NewItem)
     Vault->>Crypto: encrypt(value, nonce)
     Crypto-->>Vault: ciphertext
     Vault->>Storage: insert_item(encrypted_data)
     Storage-->>Vault: success
+    Vault->>Backup: trigger_backup_check()
+    Backup->>Backup: evaluate_schedule()
     Vault-->>CLI: success
     CLI-->>User: "Secret added successfully"
+```
+### Backup Architecture
+``` mermaid
+flowchart TD
+    A[Backup Manager] --> B[Scheduler Service]
+    A --> C[Retention Manager]
+    A --> D[Format Handler]
+    
+    B --> E{Check Interval}
+    E -->|Due| F[Create Backup]
+    E -->|Not Due| G[Wait]
+    
+    F --> H[Export Data]
+    H --> I[Apply Compression]
+    I --> J[Verify Integrity]
+    J --> K[Store Backup File]
+    
+    C --> L[List Existing Backups]
+    L --> M[Apply Retention Policy]
+    M --> N[Cleanup Old Backups]
+    
+    D --> O[JSON Format]
+    D --> P[CSV Format]
+    D --> Q[Chamber Backup Format]
+    
+    style A fill:#e1f5fe
+    style F fill:#e8f5e8
+    style C fill:#fce4ec
+    style D fill:#fff3e0
+```
+### Multiple Vault Architecture
+``` mermaid
+flowchart TD
+    A[Vault Manager] --> B[Vault Registry]
+    A --> C[Context Manager]
+    A --> D[Configuration Store]
+    
+    B --> E[Discover Vaults]
+    B --> F[Register New Vaults]
+    B --> G[Validate Vault Paths]
+    
+    C --> H[Active Vault Context]
+    C --> I[Switch Vault Context]
+    C --> J[Multi-Vault Operations]
+    
+    D --> K[Per-Vault Settings]
+    D --> L[Global Preferences]
+    D --> M[Backup Configurations]
+    
+    E --> N[(Personal Vault)]
+    E --> O[(Work Vault)]
+    E --> P[(Project Vault)]
+    
+    style A fill:#f3e5f5
+    style B fill:#e8f5e8
+    style C fill:#fff3e0
+    style D fill:#fce4ec
 ```
 ### Security Model
 ``` mermaid
@@ -232,7 +341,12 @@ flowchart TD
     I --> F
     F --> J[ChaCha20-Poly1305]
     J --> K[Encrypted Item]
+    
+    L[Multiple Vaults] --> M[Independent Keys]
+    M --> N[Per-Vault Encryption]
+    N --> O[Isolated Security Domains]
 ```
+
 
 ## 🛠️ Usage
 ### Command Line Interface
@@ -530,6 +644,315 @@ Found 7 backup(s):
    Date: 2024-01-14 14:30:00 UTC
    Timestamp: 2024-01-14T14:30:00Z
 ```
+
+## Multiple Vault Management System
+Chamber's multiple vault management system allows you to organize your secrets into separate, independent vaults. 
+This powerful feature enables you to maintain clear boundaries between different contexts like personal 
+and work secrets, project-specific credentials, or team-shared vaults.
+
+### 🔐 Multiple Vault Features
+#### **Independent Vault Management**
+- **Isolated Storage**: Vaults are stored as independent SQLite databases
+- **Context Switching**: Seamlessly switch between vaults without losing your workflow
+- **Concurrent Access**: Work with multiple vaults simultaneously
+
+#### **Vault Organization**
+- **Categories**: Organize vaults by purpose (personal, work, project, team)
+- **Descriptions**: Add detailed descriptions to identify vault purposes
+- **Favorites**: Mark frequently used vaults as favorites for quick access
+- **Flexible Naming**: Use meaningful names to identify vault contents
+
+#### **Vault Discovery & Import**
+- **Automatic Discovery**: Chamber automatically discovers existing vault files
+- **Import Existing**: Import vault files from different locations
+- **Copy or Link**: Choose to copy vault files or reference them in place
+- **Migration Support**: Migrate from single-vault to multi-vault setups
+
+### 🚀 Getting Started with Multiple Vaults
+#### Create Your First Additional Vault
+```bash
+# Create a work-specific vault
+chamber registry create "work-secrets"
+--category work
+--description "Corporate credentials and API keys"
+# Create a project-specific vault with custom location
+chamber registry create "project-alpha"
+--category project
+--path ~/projects/alpha/.chamber/vault.db
+--description "Alpha project development secrets"
+# Create a shared team vault
+chamber registry create "team-shared"
+--category team
+--description "Shared team credentials for staging environments"
+``` 
+
+#### List and Manage Vaults
+``` bash
+# List all available vaults
+chamber registry list
+# Show detailed information about a specific vault
+chamber registry info work-secrets
+# Show currently active vault
+chamber registry active
+``` 
+
+### 🔄 Working with Multiple Vaults
+#### Switching Between Vaults
+```bash
+# Switch to work vault
+chamber registry switch work-secrets
+
+# Switch to personal vault (default)
+chamber registry switch personal
+
+# Switch using vault ID (shown in list command)
+chamber registry switch vault-abc123
+```
+#### Adding Secrets to Different Vaults
+```bash
+# Make sure you're in the right vault context
+chamber registry active
+
+# Add work-related secrets
+chamber registry switch work-secrets
+chamber add --name "github-enterprise-token" --kind apikey --value "ghe_xxxxxxxxxxxx"
+chamber add --name "slack-bot-token" --kind apikey --value "xoxb-xxxxxxxxxxxx"
+
+# Switch to personal vault and add personal secrets
+chamber registry switch personal
+chamber add --name "personal-gmail" --kind password --value "my-secure-password"
+chamber add --name "home-wifi-password" --kind password --value "wifi-password-123"
+
+# Switch to project vault for project-specific secrets
+chamber registry switch project-alpha
+chamber add --name "staging-db-password" --kind database --value "staging-db-secret"
+chamber add --name "alpha-api-key" --kind apikey --value "alpha-api-xxxxxxxxxxxx"
+```
+#### Vault Operations Within Context
+```bash
+# All standard operations work within the active vault context
+
+# List secrets in current vault
+chamber list
+
+# Get secret from current vault
+chamber get "github-enterprise-token"
+
+# Export current vault
+chamber export --output work-backup.json --format json
+
+# Import into current vault
+chamber import --input team-secrets.csv --format csv
+```
+### 📁 Vault Categories and Organization
+#### Predefined Categories
+Chamber supports several predefined categories to help organize your vaults:
+
+| Category | Purpose | Example Use Cases |
+| --- | --- | --- |
+| `personal` | Personal secrets and passwords | Email passwords, personal API keys, home network credentials |
+| `work` | Professional/corporate secrets | Work email, corporate API keys, enterprise credentials |
+| `project` | Project-specific secrets | Development API keys, staging credentials, project tokens |
+| `team` | Shared team credentials | Shared service accounts, team API keys, common passwords |
+| `client` | Client-specific secrets | Client API keys, customer credentials, client environments |
+#### Creating Organized Vault Structures
+```bash
+# Personal vaults
+chamber registry create "personal-main" --category personal --description "Primary personal passwords"
+chamber registry create "personal-finance" --category personal --description "Banking and investment credentials"
+chamber registry create "personal-social" --category personal --description "Social media and entertainment accounts"
+
+# Work vaults
+chamber registry create "work-dev" --category work --description "Development environment credentials"
+chamber registry create "work-prod" --category work --description "Production system access"
+chamber registry create "work-client-acme" --category client --description "ACME Corp client credentials"
+
+# Project vaults
+chamber registry create "project-web-app" --category project --description "Web application secrets"
+chamber registry create "project-mobile-app" --category project --description "Mobile app API keys and certificates"
+```
+### 🔧 Advanced Vault Management
+#### Importing Existing Vaults
+```bash
+# Import a vault file and copy it to Chamber's directory
+chamber registry import /path/to/existing/vault.db "legacy-vault" \
+  --category work \
+  --copy
+
+# Import a vault file but keep it in its original location
+chamber registry import /shared/team/vault.db "team-vault" \
+  --category team \
+  --description "Shared team vault on network drive"
+
+# Import without copying (creates a reference)
+chamber registry import ~/old-chamber/vault.db "old-personal" \
+  --category personal
+```
+#### Updating Vault Information
+```bash
+# Update vault name and description
+chamber registry update work-secrets \
+  --name "corporate-credentials" \
+  --description "Updated corporate credentials and tokens"
+
+# Mark a vault as favorite for quick access
+chamber registry update personal-main --favorite true
+
+# Change vault category
+chamber registry update old-project --category personal
+```
+#### Vault Cleanup and Maintenance
+```bash
+# Show detailed vault information including file paths and sizes
+chamber registry info --verbose
+
+# Delete a vault from registry but keep the file
+chamber registry delete old-project
+
+# Delete a vault and its associated file permanently
+chamber registry delete old-project --delete-file
+
+# This is destructive - the vault file will be permanently deleted!
+```
+### 🎯 Workflow Examples
+#### Developer Workflow
+```bash
+# Morning routine - check what vaults are available
+chamber registry list
+
+# Switch to work vault for the day
+chamber registry switch work-dev
+
+# Add a new API key for today's work
+chamber add --name "new-service-api" --kind apikey --value "api-key-value"
+
+# Work with secrets in work context
+chamber list
+chamber get "database-password"
+
+# Switch to personal vault for personal tasks
+chamber registry switch personal-main
+chamber get "personal-email-password"
+
+# End of day - switch back to work for any final tasks
+chamber registry switch work-dev
+```
+#### Project-Based Organization
+```bash
+# Set up vaults for a new client project
+chamber registry create "client-xyz-dev" \
+  --category client \
+  --description "XYZ Corp development environment"
+
+chamber registry create "client-xyz-prod" \
+  --category client \
+  --description "XYZ Corp production environment"
+
+# Populate development vault
+chamber registry switch client-xyz-dev
+chamber add --name "dev-db-url" --kind database --value "postgresql://..."
+chamber add --name "dev-api-key" --kind apikey --value "dev-api-xxxxx"
+
+# Populate production vault
+chamber registry switch client-xyz-prod
+chamber add --name "prod-db-url" --kind database --value "postgresql://..."
+chamber add --name "prod-api-key" --kind apikey --value "prod-api-xxxxx"
+
+# Export for client handover
+chamber registry switch client-xyz-prod
+chamber export --output client-xyz-prod-handover.json
+```
+#### Team Collaboration
+```bash
+# Import shared team vault
+chamber registry import /shared/network/team-vault.db "team-staging" \
+  --category team \
+  --description "Shared staging environment credentials"
+
+# Work with team vault
+chamber registry switch team-staging
+chamber list
+
+# Add a new shared credential
+chamber add --name "new-staging-service" --kind apikey --value "shared-api-key"
+
+# Export for team member who needs offline access
+chamber export --output team-staging-export.json
+```
+### 🔍 Vault Status and Information
+#### Quick Status Overview
+```bash
+# See which vault is currently active
+chamber registry active
+# Output: Currently active vault: work-secrets (Corporate credentials and API keys)
+
+# List all vaults with status indicators
+chamber registry list
+```
+Sample output:
+``` 
+📁 Available Vaults:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ID: personal-main           Name: Personal Main
+Category: personal          Status: Closed
+Description: Primary personal passwords and accounts
+Path: /home/user/.chamber/vaults/personal-main.db
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ID: work-secrets            Name: Work Secrets           ⭐ ← Active
+Category: work              Status: Open
+Description: Corporate credentials and API keys  
+Path: /home/user/.chamber/vaults/work-secrets.db
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ID: project-alpha           Name: Project Alpha
+Category: project           Status: Closed
+Description: Alpha project development secrets
+Path: /home/user/projects/alpha/.chamber/vault.db
+```
+#### Detailed Vault Information
+```bash
+# Show comprehensive information about a specific vault
+chamber registry info work-secrets
+```
+Sample output:
+``` 
+🔐 Vault Information: work-secrets
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Name: Corporate Credentials
+   Category: work
+   Description: Corporate API keys, database credentials, and service tokens
+   
+   Status: ✅ Open (Unlocked)
+   Favorite: ⭐ Yes
+   
+   File Path: /home/user/.chamber/vaults/work-secrets.db
+   File Size: 24.5 KB
+   
+   Created: 2024-01-10 09:15:32 UTC
+   Modified: 2024-01-15 14:22:18 UTC
+   
+   Secret Count: 12 items
+   Categories: apikey (8), password (3), database (1)
+```
+### 🛠️ Terminal UI with Multiple Vaults
+When using Chamber's TUI (`chamber ui`), the multiple vault system provides:
+- **Vault Selector**: Quick vault switching with keyboard shortcuts
+- **Context Indicators**: Clear visual indication of which vault is active
+- **Vault-Specific Operations**: All TUI operations work within the active vault context
+- **Status Bar**: Current vault information displayed at all times
+
+### ⚙️ Configuration and Customization
+#### Default Vault Behavior
+```bash
+# Set a default vault to open on startup
+chamber registry switch personal-main
+
+# The last active vault is remembered between sessions
+```
+#### Vault File Locations
+By default, Chamber stores vault files in:
+- **Windows**: `%APPDATA%\chamber\vaults\`
+- **macOS**: `~/Library/Application Support/chamber/vaults/`
+- **Linux**: `~/.chamber/vaults/`
 
 ## 🧪 Testing
 Chamber includes comprehensive test coverage across all components:

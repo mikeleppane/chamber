@@ -90,16 +90,25 @@ impl VaultRegistry {
             registry.registry_path = registry_path;
             Ok(registry)
         } else {
-            // Create default registry with a default vault
+            // Create default registry
             let mut registry = Self {
                 vaults: HashMap::new(),
                 active_vault_id: None,
                 registry_path,
             };
 
-            // Create default vault if none exists
-            if registry.vaults.is_empty() {
-                registry.create_default_vault()?;
+            // Check if vault.sqlite3 exists and register it
+            if let Ok(default_vault_path) = default_db_path() {
+                if default_vault_path.exists() {
+                    // Register existing vault.sqlite3
+                    registry.register_existing_vault(default_vault_path);
+                } else {
+                    // Create default vault using vault.sqlite3 path
+                    registry.create_default_vault();
+                }
+            } else {
+                // Fallback to creating default vault
+                registry.create_default_vault();
             }
 
             registry.save()?;
@@ -107,22 +116,16 @@ impl VaultRegistry {
         }
     }
 
-    fn default_registry_path() -> Result<PathBuf> {
-        let base = dirs::config_dir().ok_or_else(|| anyhow!("No config directory found"))?;
-        Ok(base.join("chamber").join("registry.json"))
-    }
-
-    fn create_default_vault(&mut self) -> Result<()> {
-        let vault_id = "default".to_string();
-        let vault_path = Self::default_vault_path(&vault_id)?;
+    fn register_existing_vault(&mut self, vault_path: PathBuf) {
+        let vault_id = "main".to_string();
 
         let vault_info = VaultInfo {
             id: vault_id.clone(),
-            name: "Default Vault".to_string(),
+            name: "Main Vault".to_string(),
             path: vault_path,
             created_at: OffsetDateTime::now_utc(),
             last_accessed: OffsetDateTime::now_utc(),
-            description: Some("Default personal vault".to_string()),
+            description: Some("Main vault".to_string()),
             category: VaultCategory::Personal,
             is_active: true,
             is_favorite: false,
@@ -130,17 +133,41 @@ impl VaultRegistry {
 
         self.vaults.insert(vault_id.clone(), vault_info);
         self.active_vault_id = Some(vault_id);
-        Ok(())
+
+    }
+
+    fn default_registry_path() -> Result<PathBuf> {
+        let base = dirs::config_dir().ok_or_else(|| anyhow!("No config directory found"))?;
+        Ok(base.join("chamber").join("registry.json"))
+    }
+
+    fn create_default_vault(&mut self) {
+        // Use vault.sqlite3 path instead of default.db
+        let vault_id = "main".to_string();
+        let vault_path = default_db_path().expect("Could not get default DB"); // This returns vault.sqlite3 path
+
+        let vault_info = VaultInfo {
+            id: vault_id.clone(),
+            name: "Main Vault".to_string(),
+            path: vault_path,
+            created_at: OffsetDateTime::now_utc(),
+            last_accessed: OffsetDateTime::now_utc(),
+            description: Some("Main vault".to_string()),
+            category: VaultCategory::Personal,
+            is_active: true,
+            is_favorite: false,
+        };
+
+        self.vaults.insert(vault_id.clone(), vault_info);
+        self.active_vault_id = Some(vault_id);
     }
 
     fn default_vault_path(vault_id: &str) -> Result<PathBuf> {
         let base = dirs::config_dir().ok_or_else(|| anyhow!("No config directory found"))?;
         let chamber_dir = base.join("chamber");
-
-        // Ensure the chamber directory exists
         std::fs::create_dir_all(&chamber_dir)?;
 
-        // Put vault files directly in the chamber directory, not in a vault subdirectory
+        // For additional vaults, use .db extension
         Ok(chamber_dir.join(format!("{vault_id}.db")))
     }
 
@@ -518,4 +545,11 @@ impl VaultRegistry {
 
         Ok(vault_id)
     }
+}
+
+fn default_db_path() -> Result<PathBuf> {
+    let base = dirs::config_dir().ok_or_else(|| anyhow!("No config dir"))?;
+    let dir = base.join("chamber");
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir.join("vault.sqlite3"))
 }

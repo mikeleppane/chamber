@@ -132,34 +132,37 @@ pub enum VaultCommand {
 pub fn handle_vault_command(manager: &mut VaultManager, cmd: VaultCommand) -> Result<()> {
     match cmd {
         VaultCommand::List => {
+            let manager = VaultManager::new()?;
             let vaults = manager.list_vaults();
 
             if vaults.is_empty() {
-                println!("No vaults found.");
+                println!("No vaults found. Create your first vault with:");
+                println!("  chamber registry create <name>");
                 return Ok(());
             }
 
-            println!("Available vaults:");
+            println!("📁 Available Vaults:");
+            println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
             for vault in vaults {
-                let status = if vault.is_active { " (active)" } else { "" };
-                let favorite = if vault.is_favorite { " ⭐" } else { "" };
+                let status = if manager.is_vault_open(&vault.id) {
+                    "Open"
+                } else {
+                    "Closed"
+                };
+                let active_indicator = if Some(&vault.id) == manager.registry.active_vault_id.as_ref() {
+                    " ← Active"
+                } else {
+                    ""
+                };
 
-                println!(
-                    "  {} - {} [{}]{}{}",
-                    vault.id, vault.name, vault.category, favorite, status
-                );
-
+                println!("ID: {}           Name: {}{}", vault.id, vault.name, active_indicator);
+                println!("Category: {}          Status: {}", vault.category, status);
                 if let Some(desc) = &vault.description {
-                    println!("    {desc}");
+                    println!("Description: {desc}");
                 }
-                println!("    Path: {}", vault.path.display());
-                println!(
-                    "    Created: {}",
-                    vault
-                        .created_at
-                        .format(&time::format_description::well_known::Rfc3339)?
-                );
-                println!();
+                println!("Path: {}", vault.path.display());
+                println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             }
         }
 
