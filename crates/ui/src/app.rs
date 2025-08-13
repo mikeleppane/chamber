@@ -1113,7 +1113,7 @@ impl App {
         Ok(())
     }
 
-    fn switch_to_vault(&mut self, vault_id: &str) -> Result<()> {
+    fn switch_to_vault(&mut self, vault_id: &str) -> Result<String> {
         // First, switch the active vault in the registry
         self.vault_manager.switch_active_vault(vault_id)?;
 
@@ -1122,7 +1122,11 @@ impl App {
             Ok(()) => {
                 // Successfully opened vault in the manager
                 // Now we need to create our own unlocked instance
-                let vault_info = self.vault_manager.registry.get_vault(vault_id).unwrap();
+                let vault_info = self
+                    .vault_manager
+                    .registry
+                    .get_vault(vault_id)
+                    .ok_or_else(|| anyhow!("Vault with id {} not found", vault_id))?;
                 let mut new_vault = chamber_vault::Vault::open_or_create(Some(&vault_info.path))?;
                 new_vault.unlock(&self.master_input)?;
 
@@ -1140,7 +1144,7 @@ impl App {
             }
         }
 
-        Ok(())
+        Ok(String::from(vault_id))
     }
 
     fn create_vault(&mut self, name: &str, description: Option<String>, category: &str) {

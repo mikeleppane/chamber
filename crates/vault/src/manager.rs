@@ -91,7 +91,7 @@ impl VaultManager {
         let vault_info = self
             .registry
             .get_vault(&vault_id)
-            .unwrap_or_else(|| panic!("Cannot get vault with an id: {vault_id}"));
+            .ok_or_else(|| anyhow!("Vault with id {} not found", vault_id))?;
         let mut vault = Vault::open_or_create(Some(&vault_info.path))?;
         vault.initialize(master_password)?;
 

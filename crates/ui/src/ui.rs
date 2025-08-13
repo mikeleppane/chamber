@@ -849,11 +849,13 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             ItemKind::Database => ("🗄️", c_badge_db()),
         };
 
-        #[allow(clippy::expect_used)]
-        let created_date = item
-            .created_at
-            .format(&time::format_description::parse("[year]-[month]-[day]").expect("Invalid date format"))
-            .unwrap_or_else(|_| "unknown".to_string());
+        let created_date = match time::format_description::parse("[year]-[month]-[day]") {
+            Ok(format) => item
+                .created_at
+                .format(&format)
+                .unwrap_or_else(|_| "unknown".to_string()),
+            Err(_) => "unknown".to_string(),
+        };
 
         let content_width = chunks[0].width.saturating_sub(8) as usize;
         let max_name_width = content_width.saturating_sub(20); // Conservative estimate for all fixed elements
