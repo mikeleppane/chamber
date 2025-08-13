@@ -6,7 +6,16 @@ use std::path::{Path, PathBuf};
 use time::OffsetDateTime;
 
 pub trait VaultOperations {
-    /// Lists all items in the vault
+    /// Retrieves a list of items managed by the current instance.
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Item>)` - If the operation is successful, returns a vector of `Item` objects.
+    /// * `Err` - Returns an error if the operation fails.
+    ///
+    /// # Errors
+    /// This function will return an error if there is an issue while fetching or processing the items.
+    ///
+    /// Note: Ensure to handle the `Result` properly to avoid runtime errors.
     fn list_items(&self) -> Result<Vec<Item>>;
 }
 

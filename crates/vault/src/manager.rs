@@ -1,6 +1,6 @@
 use crate::registry::VaultInfo;
 use crate::{Vault, VaultCategory, VaultRegistry};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -534,11 +534,6 @@ mod tests {
 
     #[test]
     fn test_vault_lifecycle_create_open_close() {
-        let temp_dir = create_temp_dir();
-
-        // Set up a temporary registry path
-        std::env::set_var("CHAMBER_CONFIG_DIR", temp_dir.path());
-
         if let Ok(mut manager) = VaultManager::new() {
             let vault_name = "test_vault".to_string();
             let master_password = "test_password_123";
@@ -996,9 +991,11 @@ mod tests {
             assert!(manager.open_vault(nonexistent_id, "password").is_err());
             assert!(manager.switch_active_vault(nonexistent_id).is_err());
             assert!(manager.delete_vault(nonexistent_id, false).is_err());
-            assert!(manager
-                .update_vault_info(nonexistent_id, None, None, None, None)
-                .is_err());
+            assert!(
+                manager
+                    .update_vault_info(nonexistent_id, None, None, None, None)
+                    .is_err()
+            );
 
             // These operations should not error even for nonexistent vaults
             assert!(manager.close_vault(nonexistent_id).is_ok());

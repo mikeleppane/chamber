@@ -1,6 +1,6 @@
 use crate::{KdfParams, WrappedVaultKey};
-use anyhow::{anyhow, Result};
-use rusqlite::{params, Connection, OptionalExtension};
+use anyhow::{Result, anyhow};
+use rusqlite::{Connection, OptionalExtension, params};
 use time::OffsetDateTime;
 
 #[derive(Debug)]
