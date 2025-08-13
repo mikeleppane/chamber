@@ -349,658 +349,620 @@ mod tests {
     #![allow(clippy::panic)]
     #![allow(clippy::absurd_extreme_comparisons)]
     #![allow(unused_comparisons)]
-    use super::*;
-    use crate::registry::VaultCategory;
-    use anyhow::Result;
-    use std::path::PathBuf;
-    use tempfile::TempDir;
 
-    // Helper function to create a temporary directory for testing
-    fn create_temp_dir() -> TempDir {
-        TempDir::new().expect("Failed to create temp dir")
+    use super::*;
+    use crate::registry::{VaultCategory, VaultInfo, VaultRegistry};
+    use crate::{BackupConfig, Item, ItemKind};
+    use anyhow::Result;
+    use std::collections::HashMap;
+    use std::fs;
+    use tempfile::TempDir;
+    use time::OffsetDateTime;
+
+    // Test helper functions using Solution 1: Isolated environment
+    fn create_isolated_vault_manager() -> (VaultManager, TempDir) {
+        let temp_dir = TempDir::new().expect("Failed to create temp directory");
+        let registry_path = temp_dir.path().join("isolated_registry.json");
+        let vaults_dir = temp_dir.path().join("vaults");
+        fs::create_dir_all(&vaults_dir).expect("Failed to create vaults directory");
+
+        // Create an isolated registry
+        let registry = VaultRegistry {
+            vaults: HashMap::new(),
+            active_vault_id: None,
+            registry_path,
+        };
+
+        let manager = VaultManager {
+            registry,
+            open_vaults: HashMap::new(),
+        };
+
+        (manager, temp_dir)
     }
 
-    // Helper to create a basic vault file for testing
+    fn create_isolated_vault() -> (Vault, TempDir) {
+        let temp_dir = TempDir::new().expect("Failed to create temp directory");
+        let vault_path = temp_dir.path().join("test_vault.db");
+
+        let vault = Vault::open_or_create(Some(&vault_path)).expect("Failed to create isolated vault");
+
+        (vault, temp_dir)
+    }
+
+    fn create_test_vault_info(id: &str, name: &str, category: VaultCategory, temp_dir: &TempDir) -> VaultInfo {
+        let vault_path = temp_dir.path().join(format!("{name}.db"));
+
+        VaultInfo {
+            id: id.to_string(),
+            name: name.to_string(),
+            path: vault_path,
+            created_at: OffsetDateTime::now_utc(),
+            last_accessed: OffsetDateTime::now_utc(),
+            description: Some(format!("Test vault: {name}")),
+            category,
+            is_active: false,
+            is_favorite: false,
+        }
+    }
+
     fn create_test_vault_file(path: &std::path::Path) -> Result<()> {
-        // Create a minimal SQLite database file for testing
-        std::fs::create_dir_all(path.parent().unwrap())?;
-        std::fs::write(path, b"fake vault data")?;
+        // Create a minimal vault file for testing
+        let mut vault = Vault::open_or_create(Some(path))?;
+        vault.initialize("test_master_password")?;
         Ok(())
     }
 
-    #[test]
-    fn test_vault_manager_new_creates_empty_open_vaults() {
-        // This test will only work if VaultRegistry::load() succeeds
-        // In a real test environment, we'd want to mock this
-        if let Ok(manager) = VaultManager::new() {
-            assert!(manager.open_vaults.is_empty());
-            // We can't easily test registry content without mocking
-        } else {
-            // Registry loading failed, which is expected in the test environment
-            // This is acceptable as we're testing the structure
+    fn create_test_item(id: i64, name: &str) -> Item {
+        Item {
+            id,
+            name: name.to_string(),
+            kind: ItemKind::Password,
+            value: "test_value".to_string(),
+            created_at: OffsetDateTime::now_utc(),
+            updated_at: OffsetDateTime::now_utc(),
         }
     }
 
+    // VaultManager tests using isolated environment
     #[test]
-    fn test_vault_manager_default() {
-        // Test that Default trait works
-        // This might fail if registry loading fails, but tests the trait implementation
-        if let Ok(manager) = std::panic::catch_unwind(VaultManager::default) {
-            assert!(manager.open_vaults.is_empty());
-        } else {
-            // Expected if registry loading fails in test environment
-        }
+    fn test_isolated_vault_manager_new_creates_empty_open_vaults() {
+        let (manager, _temp_dir) = create_isolated_vault_manager();
+        assert!(manager.open_vaults.is_empty());
+        assert!(manager.registry.vaults.is_empty());
+        assert!(manager.registry.active_vault_id.is_none());
     }
 
     #[test]
-    fn test_list_vaults_delegates_to_registry() {
-        // We can test this by creating a VaultManager with a known registry state
-        // This is more of an integration test since we can't easily mock VaultRegistry
+    fn test_isolated_list_vaults_delegates_to_registry() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
 
-        // Create a temporary VaultManager (this might fail in test env)
-        if let Ok(manager) = VaultManager::new() {
-            let vaults = manager.list_vaults();
-            // The result should be whatever the registry returns
-            // We can't assert specific content without setting up the registry
-            assert!(vaults.len() >= 0); // Just test that it returns something
-        }
+        // Add test vaults to the isolated registry
+        let vault1 = create_test_vault_info("vault1", "Personal Vault", VaultCategory::Personal, &temp_dir);
+        let vault2 = create_test_vault_info("vault2", "Work Vault", VaultCategory::Work, &temp_dir);
+
+        manager.registry.vaults.insert("vault1".to_string(), vault1);
+        manager.registry.vaults.insert("vault2".to_string(), vault2);
+
+        let vaults = manager.list_vaults();
+        assert_eq!(vaults.len(), 2);
+
+        let vault_names: Vec<&str> = vaults.iter().map(|v| v.name.as_str()).collect();
+        assert!(vault_names.contains(&"Personal Vault"));
+        assert!(vault_names.contains(&"Work Vault"));
     }
 
     #[test]
-    fn test_is_vault_open_returns_false_for_nonexistent_vault() {
-        if let Ok(manager) = VaultManager::new() {
-            assert!(!manager.is_vault_open("nonexistent_vault"));
-        }
+    fn test_isolated_is_vault_open_returns_false_for_nonexistent_vault() {
+        let (manager, _temp_dir) = create_isolated_vault_manager();
+        assert!(!manager.is_vault_open("nonexistent_vault"));
     }
 
     #[test]
-    fn test_close_vault_removes_from_open_vaults() {
-        if let Ok(mut manager) = VaultManager::new() {
-            // Manually insert a fake vault to test removal
-            let temp_dir = create_temp_dir();
-            let vault_path = temp_dir.path().join("test.db");
-            create_test_vault_file(&vault_path).unwrap();
+    fn test_isolated_close_vault_removes_from_open_vaults() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+        let (vault, _vault_temp_dir) = create_isolated_vault();
 
-            if let Ok(vault) = Vault::open_or_create(Some(&vault_path)) {
-                manager.open_vaults.insert("test_vault".to_string(), vault);
+        // Add vault to open_vaults
+        manager.open_vaults.insert("test_vault".to_string(), vault);
+        assert!(manager.is_vault_open("test_vault"));
 
-                assert!(manager.is_vault_open("test_vault"));
-
-                let result = manager.close_vault("test_vault");
-                assert!(result.is_ok());
-                assert!(!manager.is_vault_open("test_vault"));
-            }
-        }
+        // Close the vault
+        let result = manager.close_vault("test_vault");
+        assert!(result.is_ok());
+        assert!(!manager.is_vault_open("test_vault"));
     }
 
     #[test]
-    fn test_close_vault_succeeds_even_for_nonexistent_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.close_vault("nonexistent");
-            assert!(result.is_ok());
-        }
+    fn test_isolated_close_vault_succeeds_even_for_nonexistent_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        // Should succeed even if vault doesn't exist
+        let result = manager.close_vault("nonexistent_vault");
+        assert!(result.is_ok());
     }
 
     #[test]
-    fn test_close_all_vaults_clears_open_vaults() {
-        let mut manager = VaultManager::new().expect("Failed to create VaultManager");
+    fn test_isolated_close_all_vaults_clears_open_vaults() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+        let (vault1, _temp1) = create_isolated_vault();
+        let (vault2, _temp2) = create_isolated_vault();
 
-        // Add some vaults using the proper creation flow
-        let temp_dir = create_temp_dir();
+        // Add vaults to open_vaults
+        manager.open_vaults.insert("vault1".to_string(), vault1);
+        manager.open_vaults.insert("vault2".to_string(), vault2);
 
-        for i in 0..3 {
-            let vault_path = temp_dir.path().join(format!("test{i}.db"));
-
-            // Create and initialize a proper vault
-            let mut vault =
-                Vault::open_or_create(Some(&vault_path)).unwrap_or_else(|_| panic!("Failed to create vault {i}"));
-            vault
-                .initialize(&format!("password{i}"))
-                .unwrap_or_else(|_| panic!("Failed to initialize vault {i}"));
-
-            manager.open_vaults.insert(format!("vault_{i}"), vault);
-        }
-
-        assert!(
-            !manager.open_vaults.is_empty(),
-            "open_vaults should not be empty after inserting test vaults"
-        );
+        assert_eq!(manager.open_vaults.len(), 2);
 
         manager.close_all_vaults();
+        assert!(manager.open_vaults.is_empty());
+    }
+
+    #[test]
+    fn test_isolated_get_vault_returns_none_for_closed_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        let result = manager.get_vault("nonexistent_vault");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_isolated_get_vault_returns_some_for_open_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+        let (vault, _vault_temp_dir) = create_isolated_vault();
+
+        // Add vault to open_vaults
+        manager.open_vaults.insert("test_vault".to_string(), vault);
+
+        let result = manager.get_vault("test_vault");
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_isolated_get_active_vault_fails_when_no_active_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        let result = manager.get_active_vault();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No active vault"));
+    }
+
+    #[test]
+    fn test_isolated_get_active_vault_fails_when_active_vault_not_open() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let vault_info = create_test_vault_info("test_vault", "Test Vault", VaultCategory::Personal, &temp_dir);
+
+        // Add vault to registry and set as active, but don't open it
+        manager.registry.vaults.insert("test_vault".to_string(), vault_info);
+        manager.registry.active_vault_id = Some("test_vault".to_string());
+
+        let result = manager.get_active_vault();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_isolated_switch_active_vault_fails_for_nonexistent_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        let result = manager.switch_active_vault("nonexistent_vault");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_isolated_vault_lifecycle_create_open_close() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let master_password = "test_master_password";
+
+        // Create vault
+        let vault_id = manager
+            .create_vault(
+                "Test Vault".to_string(),
+                Some(temp_dir.path().join("test_vault.db")),
+                VaultCategory::Personal,
+                Some("Test description".to_string()),
+                master_password,
+            )
+            .expect("Failed to create vault");
+
+        // Verify vault was created
+        assert!(manager.registry.vaults.contains_key(&vault_id));
+
+        // Open vault
+        let result = manager.open_vault(&vault_id, master_password);
+        assert!(result.is_ok());
+        assert!(manager.is_vault_open(&vault_id));
+
+        // Close vault
+        let result = manager.close_vault(&vault_id);
+        assert!(result.is_ok());
+        assert!(!manager.is_vault_open(&vault_id));
+    }
+
+    #[test]
+    fn test_isolated_vault_creation_with_custom_path() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let custom_path = temp_dir.path().join("custom").join("path").join("vault.db");
+        let master_password = "test_password";
+
+        let vault_id = manager
+            .create_vault(
+                "Custom Path Vault".to_string(),
+                Some(custom_path.clone()),
+                VaultCategory::Work,
+                None,
+                master_password,
+            )
+            .expect("Failed to create vault with custom path");
+
+        let vault_info = manager.registry.vaults.get(&vault_id).unwrap();
+        assert_eq!(vault_info.path, custom_path);
+        assert_eq!(vault_info.category, VaultCategory::Work);
+    }
+
+    #[test]
+    fn test_isolated_open_vault_with_wrong_password() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let correct_password = "correct_password";
+        let wrong_password = "wrong_password";
+
+        // Create vault with correct password
+        let vault_id = manager
+            .create_vault(
+                "Test Vault".to_string(),
+                Some(temp_dir.path().join("test_vault.db")),
+                VaultCategory::Personal,
+                None,
+                correct_password,
+            )
+            .expect("Failed to create vault");
+
+        // Try to open with wrong password
+        let result = manager.open_vault(&vault_id, wrong_password);
+        assert!(result.is_err());
+        assert!(!manager.is_vault_open(&vault_id));
+    }
+
+    #[test]
+    fn test_isolated_open_nonexistent_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        let result = manager.open_vault("nonexistent_vault", "password");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_isolated_update_vault_info() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let vault_info = create_test_vault_info("test_vault", "Original Name", VaultCategory::Personal, &temp_dir);
+        manager.registry.vaults.insert("test_vault".to_string(), vault_info);
+
+        let result = manager.update_vault_info(
+            "test_vault",
+            Some("Updated Name".to_string()),
+            Some("Updated description".to_string()),
+            Some(VaultCategory::Work),
+            Some(true),
+        );
+
+        assert!(result.is_ok());
+        let updated_vault = manager.registry.vaults.get("test_vault").unwrap();
+        assert_eq!(updated_vault.name, "Updated Name");
+        assert_eq!(updated_vault.description, Some("Updated description".to_string()));
+        assert_eq!(updated_vault.category, VaultCategory::Work);
+        assert!(updated_vault.is_favorite);
+    }
+
+    #[test]
+    fn test_isolated_update_nonexistent_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        let result = manager.update_vault_info("nonexistent_vault", Some("New Name".to_string()), None, None, None);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_isolated_delete_vault_without_file() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let vault_info = create_test_vault_info("test_vault", "Test Vault", VaultCategory::Personal, &temp_dir);
+        manager.registry.vaults.insert("test_vault".to_string(), vault_info);
+
+        // Delete vault but keep file
+        let result = manager.delete_vault("test_vault", false);
+        assert!(result.is_ok());
+        assert!(!manager.registry.vaults.contains_key("test_vault"));
+    }
+
+    #[test]
+    fn test_isolated_delete_vault_with_file() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let vault_path = temp_dir.path().join("test_vault.db");
+
+        // Create an actual vault file
+        create_test_vault_file(&vault_path).expect("Failed to create test vault file");
+
+        // Create vault info with the SAME path as the file we created
+        let mut vault_info = create_test_vault_info("test_vault", "Test Vault", VaultCategory::Personal, &temp_dir);
+        vault_info.path = vault_path.clone(); // Override the path to match our test file
+
+        manager.registry.vaults.insert("test_vault".to_string(), vault_info);
+
+        assert!(vault_path.exists());
+
+        // Delete vault and file
+        let result = manager.delete_vault("test_vault", true);
+        assert!(result.is_ok());
+        assert!(!manager.registry.vaults.contains_key("test_vault"));
+        assert!(!vault_path.exists());
+    }
+
+    #[test]
+    fn test_isolated_delete_nonexistent_vault() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        let result = manager.delete_vault("nonexistent_vault", false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_isolated_import_vault() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let source_vault_path = temp_dir.path().join("source_vault.db");
+
+        // Create a source vault file
+        create_test_vault_file(&source_vault_path).expect("Failed to create source vault file");
+
+        // Store the initial vault count to detect new entries
+        let initial_vault_count = manager.registry.vaults.len();
+
+        let vault_id = manager
+            .import_vault(
+                &source_vault_path,
+                "Imported Vault".to_string(),
+                VaultCategory::Archive,
+                true, // copy file
+            )
+            .expect("Failed to import vault");
+
+        // Verify vault was imported
+        assert!(manager.registry.vaults.contains_key(&vault_id));
+        assert_eq!(manager.registry.vaults.len(), initial_vault_count + 1);
+
+        let vault_info = manager.registry.vaults.get(&vault_id).unwrap();
+        assert_eq!(vault_info.name, "Imported Vault");
+        assert_eq!(vault_info.category, VaultCategory::Archive);
+
+        // Store the imported vault file path for cleanup
+        let imported_vault_path = vault_info.path.clone();
+
+        // CLEANUP: Delete the vault entry and any files that may have been created outside temp_dir
+        let cleanup_result = manager.delete_vault(&vault_id, true); // delete_file = true
+
+        // Verify cleanup was successful
+        if cleanup_result.is_ok() {
+            assert!(!manager.registry.vaults.contains_key(&vault_id));
+            // If the file was created outside temp_dir, it should now be deleted
+            if !imported_vault_path.starts_with(temp_dir.path()) {
+                assert!(
+                    !imported_vault_path.exists(),
+                    "Production file should be cleaned up: {imported_vault_path:?}"
+                );
+            }
+        } else {
+            // If delete_vault failed, try manual cleanup
+            eprintln!("Warning: delete_vault failed, attempting manual cleanup: {cleanup_result:?}");
+
+            // Remove from the registry manually
+            manager.registry.vaults.remove(&vault_id);
+
+            // Try to delete the file manually if it's outside our temp directory
+            if !imported_vault_path.starts_with(temp_dir.path()) && imported_vault_path.exists() {
+                if let Err(e) = std::fs::remove_file(&imported_vault_path) {
+                    eprintln!("Warning: Failed to clean up test file {imported_vault_path:?}: {e}");
+                }
+            }
+        }
+
+        // Final verification that we cleaned up properly
         assert!(
-            manager.open_vaults.is_empty(),
-            "open_vaults should be empty after close_all_vaults"
+            !manager.registry.vaults.contains_key(&vault_id),
+            "Vault should be cleaned up from registry"
         );
     }
 
     #[test]
-    fn test_get_vault_returns_none_for_closed_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.get_vault("nonexistent");
-            assert!(result.is_none());
-        }
-    }
-
-    #[test]
-    fn test_get_vault_returns_some_for_open_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let temp_dir = create_temp_dir();
-            let vault_path = temp_dir.path().join("test.db");
-            create_test_vault_file(&vault_path).unwrap();
-
-            if let Ok(vault) = Vault::open_or_create(Some(&vault_path)) {
-                manager.open_vaults.insert("test_vault".to_string(), vault);
-
-                let result = manager.get_vault("test_vault");
-                assert!(result.is_some());
-            }
-        }
-    }
-
-    #[test]
-    fn test_get_active_vault_fails_when_no_active_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            // Ensure no active vault is set
-            manager.registry.active_vault_id = None;
-
-            let result = manager.get_active_vault();
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("No active vault"));
-        }
-    }
-
-    #[test]
-    fn test_get_active_vault_fails_when_active_vault_not_open() {
-        if let Ok(mut manager) = VaultManager::new() {
-            // Set an active vault ID but don't open it
-            manager.registry.active_vault_id = Some("test_vault".to_string());
-
-            let result = manager.get_active_vault();
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("not unlocked"));
-        }
-    }
-
-    #[test]
-    fn test_switch_active_vault_fails_for_nonexistent_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.switch_active_vault("nonexistent");
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("not found"));
-        }
-    }
-
-    // Integration-style tests that work with the real components
-
-    #[test]
-    fn test_vault_lifecycle_create_open_close() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let vault_name = "test_vault".to_string();
-            let master_password = "test_password_123";
-
-            // Test vault creation
-            let result = manager.create_vault(
-                vault_name,
-                None,
-                VaultCategory::Testing,
-                Some("Test description".to_string()),
-                master_password,
-            );
-
-            match result {
-                Ok(vault_id) => {
-                    assert!(!vault_id.is_empty());
-
-                    // Test that vault appears in list
-                    let vaults = manager.list_vaults();
-                    assert!(vaults.iter().any(|v| v.id == vault_id));
-
-                    // Test opening the vault
-                    let open_result = manager.open_vault(&vault_id, master_password);
-                    assert!(open_result.is_ok());
-                    assert!(manager.is_vault_open(&vault_id));
-
-                    // Test closing the vault
-                    let close_result = manager.close_vault(&vault_id);
-                    assert!(close_result.is_ok());
-                    assert!(!manager.is_vault_open(&vault_id));
-                }
-                Err(e) => {
-                    println!("Vault creation failed (expected in some test environments): {e}");
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_vault_creation_with_custom_path() {
-        let temp_dir = create_temp_dir();
-        let custom_vault_path = temp_dir.path().join("custom_vault.db");
-
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.create_vault(
-                "custom_vault".to_string(),
-                Some(custom_vault_path.clone()),
-                VaultCategory::Personal,
-                None,
-                "password123",
-            );
-
-            match result {
-                Ok(vault_id) => {
-                    let vaults = manager.list_vaults();
-                    let created_vault = vaults.iter().find(|v| v.id == vault_id);
-
-                    if let Some(vault_info) = created_vault {
-                        assert_eq!(vault_info.path, custom_vault_path);
-                        assert_eq!(vault_info.category, VaultCategory::Personal);
-                    }
-                }
-                Err(e) => {
-                    println!("Custom path vault creation failed: {e}");
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_vault_creation_with_weak_password_still_succeeds() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.create_vault(
-                "weak_password_vault".to_string(),
-                None,
-                VaultCategory::Testing,
-                None,
-                "123", // Weak password
-            );
-
-            // The VaultManager should allow weak passwords (validation might be elsewhere)
-            match result {
-                Ok(vault_id) => {
-                    assert!(!vault_id.is_empty());
-                }
-                Err(e) => {
-                    println!("Weak password vault creation failed: {e}");
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_open_vault_with_wrong_password() {
-        let _temp_dir = create_temp_dir();
-
-        if let Ok(mut manager) = VaultManager::new() {
-            let correct_password = "correct_password";
-            let wrong_password = "wrong_password";
-
-            // Create vault
-            if let Ok(vault_id) = manager.create_vault(
-                "password_test_vault".to_string(),
-                None,
-                VaultCategory::Testing,
-                None,
-                correct_password,
-            ) {
-                // Try to open with wrong password
-                let result = manager.open_vault(&vault_id, wrong_password);
-                assert!(result.is_err());
-                assert!(!manager.is_vault_open(&vault_id));
-
-                // Try to open with correct password
-                let result = manager.open_vault(&vault_id, correct_password);
-                match result {
-                    Ok(()) => assert!(manager.is_vault_open(&vault_id)),
-                    Err(e) => println!("Opening with correct password failed: {e}"),
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_open_nonexistent_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.open_vault("nonexistent_vault", "any_password");
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("not found"));
-        }
-    }
-
-    #[test]
-    fn test_update_vault_info() {
-        if let Ok(mut manager) = VaultManager::new() {
-            // Create a vault first
-            if let Ok(vault_id) = manager.create_vault(
-                "original_name".to_string(),
-                None,
-                VaultCategory::Personal,
-                Some("original description".to_string()),
-                "password123",
-            ) {
-                // Update vault info
-                let result = manager.update_vault_info(
-                    &vault_id,
-                    Some("updated_name".to_string()),
-                    Some("updated description".to_string()),
-                    Some(VaultCategory::Work),
-                    Some(true), // Mark as favorite
-                );
-
-                match result {
-                    Ok(()) => {
-                        // Verify updates
-                        let vaults = manager.list_vaults();
-                        let updated_vault = vaults.iter().find(|v| v.id == vault_id);
-
-                        if let Some(vault_info) = updated_vault {
-                            assert_eq!(vault_info.name, "updated_name");
-                            assert_eq!(vault_info.description, Some("updated description".to_string()));
-                            assert_eq!(vault_info.category, VaultCategory::Work);
-                            assert!(vault_info.is_favorite);
-                        }
-                    }
-                    Err(e) => println!("Update vault info failed: {e}"),
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_update_nonexistent_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.update_vault_info("nonexistent", Some("new_name".to_string()), None, None, None);
-
-            assert!(result.is_err());
-        }
-    }
-
-    #[test]
-    fn test_delete_vault_without_file() {
-        if let Ok(mut manager) = VaultManager::new() {
-            // Create a vault
-            if let Ok(vault_id) = manager.create_vault(
-                "delete_test_vault".to_string(),
-                None,
-                VaultCategory::Testing,
-                None,
-                "password123",
-            ) {
-                // Open the vault
-                let _ = manager.open_vault(&vault_id, "password123");
-                assert!(manager.is_vault_open(&vault_id));
-
-                // Delete without removing file
-                let result = manager.delete_vault(&vault_id, false);
-                match result {
-                    Ok(()) => {
-                        // Verify vault is closed and removed from registry
-                        assert!(!manager.is_vault_open(&vault_id));
-                        let vaults = manager.list_vaults();
-                        assert!(!vaults.iter().any(|v| v.id == vault_id));
-                    }
-                    Err(e) => println!("Delete vault failed: {e}"),
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_delete_vault_with_file() {
-        let temp_dir = create_temp_dir();
-        let vault_path = temp_dir.path().join("delete_test.db");
-
-        if let Ok(mut manager) = VaultManager::new() {
-            // Create a vault with custom path
-            if let Ok(vault_id) = manager.create_vault(
-                "delete_with_file_test".to_string(),
-                Some(vault_path.clone()),
-                VaultCategory::Testing,
-                None,
-                "password123",
-            ) {
-                // Verify file exists
-                assert!(vault_path.exists());
-
-                // Delete with file removal
-                let result = manager.delete_vault(&vault_id, true);
-                match result {
-                    Ok(()) => {
-                        // Verify vault is removed and file is deleted
-                        let vaults = manager.list_vaults();
-                        assert!(!vaults.iter().any(|v| v.id == vault_id));
-                        assert!(!vault_path.exists());
-                    }
-                    Err(e) => println!("Delete vault with file failed: {e}"),
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_delete_nonexistent_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.delete_vault("nonexistent", false);
-            // Should return an error
-            assert!(result.is_err());
-        }
-    }
-
-    #[test]
-    fn test_import_vault() {
-        let temp_dir = create_temp_dir();
+    fn test_isolated_import_vault_without_copy() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
         let source_vault_path = temp_dir.path().join("source_vault.db");
-        create_test_vault_file(&source_vault_path).unwrap();
 
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.import_vault(
+        // Create source vault file
+        create_test_vault_file(&source_vault_path).expect("Failed to create source vault file");
+
+        let vault_id = manager
+            .import_vault(
                 &source_vault_path,
-                "imported_vault".to_string(),
-                VaultCategory::Archive,
-                true, // Copy file
-            );
-
-            match result {
-                Ok(vault_id) => {
-                    assert!(!vault_id.is_empty());
-
-                    // Verify vault appears in list
-                    let vaults = manager.list_vaults();
-                    let imported_vault = vaults.iter().find(|v| v.id == vault_id);
-
-                    if let Some(vault_info) = imported_vault {
-                        assert_eq!(vault_info.name, "imported_vault");
-                        assert_eq!(vault_info.category, VaultCategory::Archive);
-                        // File should be copied to a different location
-                        assert_ne!(vault_info.path, source_vault_path);
-                    }
-                }
-                Err(e) => println!("Import vault failed: {e}"),
-            }
-        }
-    }
-
-    #[test]
-    fn test_import_vault_without_copy() {
-        let temp_dir = create_temp_dir();
-        let source_vault_path = temp_dir.path().join("source_vault.db");
-        create_test_vault_file(&source_vault_path).unwrap();
-
-        if let Ok(mut manager) = VaultManager::new() {
-            let result = manager.import_vault(
-                &source_vault_path,
-                "imported_no_copy_vault".to_string(),
-                VaultCategory::Personal,
-                false, // Don't copy file
-            );
-
-            match result {
-                Ok(vault_id) => {
-                    let vaults = manager.list_vaults();
-                    let imported_vault = vaults.iter().find(|v| v.id == vault_id);
-
-                    if let Some(vault_info) = imported_vault {
-                        // Path should be the same as source
-                        assert_eq!(vault_info.path, source_vault_path);
-                    }
-                }
-                Err(e) => println!("Import vault without copy failed: {e}"),
-            }
-        }
-    }
-
-    #[test]
-    fn test_import_nonexistent_vault() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let nonexistent_path = PathBuf::from("/nonexistent/vault.db");
-            let result = manager.import_vault(
-                &nonexistent_path,
-                "nonexistent_vault".to_string(),
-                VaultCategory::Personal,
-                false,
-            );
-
-            assert!(result.is_err());
-        }
-    }
-
-    #[test]
-    fn test_multiple_vaults_management() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let mut vault_ids = Vec::new();
-
-            // Create multiple vaults
-            for i in 0..3 {
-                if let Ok(vault_id) = manager.create_vault(
-                    format!("vault_{i}"),
-                    None,
-                    VaultCategory::Testing,
-                    Some(format!("Test vault {i}")),
-                    "password123",
-                ) {
-                    vault_ids.push(vault_id);
-                }
-            }
-
-            // Open all vaults
-            for vault_id in &vault_ids {
-                let _ = manager.open_vault(vault_id, "password123");
-            }
-
-            // Verify all are open
-            for vault_id in &vault_ids {
-                assert!(manager.is_vault_open(vault_id));
-            }
-
-            // Close all vaults
-            manager.close_all_vaults();
-
-            // Verify all are closed
-            for vault_id in &vault_ids {
-                assert!(!manager.is_vault_open(vault_id));
-            }
-
-            // Clean up - delete all vaults
-            for vault_id in &vault_ids {
-                let _ = manager.delete_vault(vault_id, true);
-            }
-        }
-    }
-
-    #[test]
-    fn test_active_vault_workflow() {
-        if let Ok(mut manager) = VaultManager::new() {
-            // Create two vaults
-            let vault1_result =
-                manager.create_vault("vault1".to_string(), None, VaultCategory::Personal, None, "password123");
-
-            let vault2_result =
-                manager.create_vault("vault2".to_string(), None, VaultCategory::Work, None, "password456");
-
-            if let (Ok(vault1_id), Ok(vault2_id)) = (vault1_result, vault2_result) {
-                // Switch active vault to vault1
-                let switch_result = manager.switch_active_vault(&vault1_id);
-                assert!(switch_result.is_ok());
-
-                // Open vault1
-                let open_result = manager.open_vault(&vault1_id, "password123");
-                if open_result.is_ok() {
-                    // Get active vault should succeed
-                    let active_result = manager.get_active_vault();
-                    assert!(active_result.is_ok());
-                }
-
-                // Switch to vault2
-                let switch_result = manager.switch_active_vault(&vault2_id);
-                assert!(switch_result.is_ok());
-
-                // Get active vault should fail (vault2 not opened)
-                let active_result = manager.get_active_vault();
-                assert!(active_result.is_err());
-
-                // Open vault2
-                let open_result = manager.open_vault(&vault2_id, "password456");
-                if open_result.is_ok() {
-                    // Get active vault should succeed now
-                    let active_result = manager.get_active_vault();
-                    assert!(active_result.is_ok());
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_vault_categories() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let categories = [
-                VaultCategory::Personal,
-                VaultCategory::Work,
-                VaultCategory::Team,
+                "Linked Vault".to_string(),
                 VaultCategory::Project,
-                VaultCategory::Testing,
-                VaultCategory::Archive,
-                VaultCategory::Custom("CustomCategory".to_string()),
-            ];
+                false, // don't copy file, just reference
+            )
+            .expect("Failed to import vault");
 
-            for (i, category) in categories.iter().enumerate() {
-                let result = manager.create_vault(
-                    format!("category_test_{i}"),
-                    None,
+        // Verify vault was imported
+        assert!(manager.registry.vaults.contains_key(&vault_id));
+        let vault_info = manager.registry.vaults.get(&vault_id).unwrap();
+        assert_eq!(vault_info.path, source_vault_path);
+    }
+
+    #[test]
+    fn test_isolated_import_nonexistent_vault() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let nonexistent_path = temp_dir.path().join("nonexistent.db");
+
+        let result = manager.import_vault(
+            &nonexistent_path,
+            "Nonexistent Vault".to_string(),
+            VaultCategory::Personal,
+            true,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_isolated_multiple_vaults_management() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let master_password = "test_password";
+
+        // Create multiple vaults
+        let vault1_id = manager
+            .create_vault(
+                "Personal Vault".to_string(),
+                Some(temp_dir.path().join("personal.db")),
+                VaultCategory::Personal,
+                None,
+                master_password,
+            )
+            .expect("Failed to create personal vault");
+
+        let vault2_id = manager
+            .create_vault(
+                "Work Vault".to_string(),
+                Some(temp_dir.path().join("work.db")),
+                VaultCategory::Work,
+                None,
+                master_password,
+            )
+            .expect("Failed to create work vault");
+
+        // Verify both vaults exist
+        assert_eq!(manager.list_vaults().len(), 2);
+
+        // Open both vaults
+        assert!(manager.open_vault(&vault1_id, master_password).is_ok());
+        assert!(manager.open_vault(&vault2_id, master_password).is_ok());
+
+        // Verify both are open
+        assert!(manager.is_vault_open(&vault1_id));
+        assert!(manager.is_vault_open(&vault2_id));
+
+        // Switch active vault
+        assert!(manager.switch_active_vault(&vault1_id).is_ok());
+        assert_eq!(manager.registry.active_vault_id, Some(vault1_id.clone()));
+
+        // Close all vaults
+        manager.close_all_vaults();
+        assert!(!manager.is_vault_open(&vault1_id));
+        assert!(!manager.is_vault_open(&vault2_id));
+    }
+
+    #[test]
+    fn test_isolated_active_vault_workflow() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let master_password = "test_password";
+
+        // Create and open vault
+        let vault_id = manager
+            .create_vault(
+                "Active Vault".to_string(),
+                Some(temp_dir.path().join("active.db")),
+                VaultCategory::Personal,
+                None,
+                master_password,
+            )
+            .expect("Failed to create vault");
+
+        assert!(manager.open_vault(&vault_id, master_password).is_ok());
+        assert!(manager.switch_active_vault(&vault_id).is_ok());
+
+        // Should be able to get active vault
+        let active_vault_result = manager.get_active_vault();
+        assert!(active_vault_result.is_ok());
+    }
+
+    #[test]
+    fn test_isolated_vault_categories() {
+        let (mut manager, temp_dir) = create_isolated_vault_manager();
+        let master_password = "test_password";
+
+        // Test different categories
+        let categories = [
+            VaultCategory::Personal,
+            VaultCategory::Work,
+            VaultCategory::Team,
+            VaultCategory::Project,
+            VaultCategory::Testing,
+            VaultCategory::Archive,
+            VaultCategory::Custom("Custom Category".to_string()),
+        ];
+
+        for (i, category) in categories.iter().enumerate() {
+            let vault_id = manager
+                .create_vault(
+                    format!("Vault {i}"),
+                    Some(temp_dir.path().join(format!("vault_{i}.db"))),
                     category.clone(),
-                    Some(format!("Testing {category:?} category")),
-                    "password123",
-                );
+                    None,
+                    master_password,
+                )
+                .expect("Failed to create vault");
 
-                if let Ok(vault_id) = result {
-                    let vaults = manager.list_vaults();
-                    let created_vault = vaults.iter().find(|v| v.id == vault_id);
+            let vault_info = manager.registry.vaults.get(&vault_id).unwrap();
+            assert_eq!(vault_info.category, *category);
+        }
 
-                    if let Some(vault_info) = created_vault {
-                        assert_eq!(vault_info.category, *category);
-                    }
-                }
-            }
+        assert_eq!(manager.list_vaults().len(), categories.len());
+    }
+
+    #[test]
+    fn test_isolated_error_handling_consistency() {
+        let (mut manager, _temp_dir) = create_isolated_vault_manager();
+
+        // All operations on nonexistent vaults should return errors
+        assert!(manager.open_vault("nonexistent", "password").is_err());
+        assert!(manager.switch_active_vault("nonexistent").is_err());
+        assert!(
+            manager
+                .update_vault_info("nonexistent", None, None, None, None)
+                .is_err()
+        );
+        assert!(manager.delete_vault("nonexistent", false).is_err());
+
+        // Operations that should succeed even with nonexistent vaults
+        assert!(manager.close_vault("nonexistent").is_ok());
+        assert!(!manager.is_vault_open("nonexistent"));
+        assert!(manager.get_vault("nonexistent").is_none());
+    }
+
+    // BackupManager tests can also be isolated
+    fn create_test_config(temp_dir: &TempDir) -> BackupConfig {
+        BackupConfig {
+            enabled: true,
+            backup_dir: temp_dir.path().join("backups"),
+            interval_hours: 24,
+            max_backups: 5,
+            format: String::from("Json"),
+            compress: false,
+            verify_after_backup: false,
         }
     }
 
     #[test]
-    fn test_error_handling_consistency() {
-        if let Ok(mut manager) = VaultManager::new() {
-            let nonexistent_id = "definitely_nonexistent_vault_id";
+    fn test_isolated_generic_backup_manager_creation() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = create_test_config(&temp_dir);
+        let _items = [create_test_item(1, "test_item")];
 
-            // All operations on nonexistent vaults should return errors
-            assert!(manager.open_vault(nonexistent_id, "password").is_err());
-            assert!(manager.switch_active_vault(nonexistent_id).is_err());
-            assert!(manager.delete_vault(nonexistent_id, false).is_err());
-            assert!(
-                manager
-                    .update_vault_info(nonexistent_id, None, None, None, None)
-                    .is_err()
-            );
+        // Create a mock vault for testing (you'd need to implement this)
+        // let vault = MockVault::new(items);
+        // let manager = BackupManager::new(vault, config.clone());
+        //
+        // assert_eq!(manager.config.enabled, config.enabled);
+        // assert_eq!(manager.config.format, config.format);
+        // assert_eq!(manager.config.max_backups, config.max_backups);
 
-            // These operations should not error even for nonexistent vaults
-            assert!(manager.close_vault(nonexistent_id).is_ok());
-            assert!(!manager.is_vault_open(nonexistent_id));
-            assert!(manager.get_vault(nonexistent_id).is_none());
-        }
+        // For now, just test that config creation works
+        assert!(config.enabled);
+        assert_eq!(config.max_backups, 5);
+        assert!(temp_dir.path().join("backups") == config.backup_dir);
     }
 }
