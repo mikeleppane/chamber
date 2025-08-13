@@ -22,7 +22,13 @@ fn main() -> Result<()> {
     // If CLI arguments are provided, run CLI mode; otherwise, launch TUI.
     let cli = Cli::parse();
     if let Some(cmd) = cli.command {
-        return handle_command(cmd);
+        match handle_command(cmd) {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                eprintln!("❌ Error: invalid command! Please check your input.\n{err}");
+                std::process::exit(1);
+            }
+        }
     }
 
     let vault = Vault::open_default()?;
