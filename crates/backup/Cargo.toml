@@ -13,4 +13,9 @@ serde_json = {workspace = true}
 flate2 = {workspace = true}
 
 [dev-dependencies]
-tempfile = "3.20.0"
+tempfile = {workspace = true}
+criterion = {workspace = true}
+
+[[bench]]
+name = "backup_benchmark"
+harness = false

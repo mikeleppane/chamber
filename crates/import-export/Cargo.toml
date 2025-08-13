@@ -10,3 +10,11 @@ chamber-vault = { path = "../vault" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+tempfile = {workspace = true}
+
+[[bench]]
+name = "import_export_benchmark"
+harness = false

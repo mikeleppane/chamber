@@ -8,3 +8,10 @@ description = "Password generation utilities for Chamber secrets manager"
 anyhow = { workspace = true }
 rand = { workspace = true }
 
+[dev-dependencies]
+criterion = { workspace = true }
+
+
+[[bench]]
+name = "password_gen_benchmark"
+harness = false
