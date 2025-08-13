@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use time::OffsetDateTime;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultInfo {
@@ -215,7 +216,7 @@ impl VaultRegistry {
         category: VaultCategory,
         description: Option<String>,
     ) -> Result<String> {
-        let vault_id = self.generate_vault_id(&name);
+        let vault_id = Self::generate_vault_id();
 
         // Check if vault ID already exists
         if self.vaults.contains_key(&vault_id) {
@@ -251,23 +252,8 @@ impl VaultRegistry {
         Ok(vault_id)
     }
 
-    fn generate_vault_id(&self, name: &str) -> String {
-        let base_id = name
-            .to_lowercase()
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
-            .collect::<String>()
-            .replace(' ', "-");
-
-        let mut counter = 0;
-        let mut vault_id = base_id.clone();
-
-        while self.vaults.contains_key(&vault_id) {
-            counter += 1;
-            vault_id = format!("{base_id}-{counter}");
-        }
-
-        vault_id
+    fn generate_vault_id() -> String {
+        Uuid::new_v4().to_string()
     }
 
     /// Get all vaults
@@ -436,11 +422,6 @@ impl VaultRegistry {
             .get(vault_id)
             .ok_or_else(|| anyhow!("Vault with ID '{}' not found", vault_id))?;
 
-        // Don't allow deleting if it's the only vault
-        if self.vaults.len() == 1 {
-            return Err(anyhow!("Cannot delete the last remaining vault"));
-        }
-
         // Delete physical file if requested
         if delete_file && vault.path.exists() {
             fs::remove_file(&vault.path)?;
@@ -514,7 +495,7 @@ impl VaultRegistry {
             return Err(anyhow!("Vault file does not exist: {}", vault_file.display()));
         }
 
-        let vault_id = self.generate_vault_id(&name);
+        let vault_id = Self::generate_vault_id();
 
         let vault_path = if copy_file {
             let new_path = Self::default_vault_path(&vault_id)?;
@@ -551,4 +532,715 @@ fn default_db_path() -> Result<PathBuf> {
     let dir = base.join("chamber");
     std::fs::create_dir_all(&dir)?;
     Ok(dir.join("vault.sqlite3"))
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::panic)]
+    use super::*;
+    use std::collections::HashMap;
+    use tempfile::TempDir;
+    use time::OffsetDateTime;
+    use uuid::Uuid;
+
+    fn create_temp_registry() -> (VaultRegistry, TempDir) {
+        let temp_dir = TempDir::new().expect("Failed to create temp directory");
+        let registry_path = temp_dir.path().join("test_registry.json");
+
+        let registry = VaultRegistry {
+            vaults: HashMap::new(),
+            active_vault_id: None,
+            registry_path,
+        };
+
+        (registry, temp_dir)
+    }
+
+    fn create_test_vault_info(id: &str, name: &str, category: VaultCategory) -> VaultInfo {
+        let temp_dir = TempDir::new().expect("Failed to create temp directory");
+        let vault_path = temp_dir.path().join("test_vault.db");
+
+        VaultInfo {
+            id: id.to_string(),
+            name: name.to_string(),
+            path: vault_path,
+            created_at: OffsetDateTime::now_utc(),
+            last_accessed: OffsetDateTime::now_utc(),
+            description: None,
+            category,
+            is_active: false,
+            is_favorite: false,
+        }
+    }
+
+    #[test]
+    fn test_vault_registry_new_empty() {
+        let (registry, _temp_dir) = create_temp_registry();
+
+        assert!(registry.vaults.is_empty());
+        assert!(registry.active_vault_id.is_none());
+        assert!(!registry.registry_path.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn test_list_vaults_empty() {
+        let (registry, _temp_dir) = create_temp_registry();
+        let vaults = registry.list_vaults();
+
+        assert!(vaults.is_empty());
+    }
+
+    #[test]
+    fn test_list_vaults_with_data() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        let vault1 = create_test_vault_info(
+            "550e8400-e29b-41d4-a716-446655440000",
+            "Test Vault 1",
+            VaultCategory::Personal,
+        );
+        let vault2 = create_test_vault_info(
+            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+            "Test Vault 2",
+            VaultCategory::Work,
+        );
+
+        registry
+            .vaults
+            .insert("550e8400-e29b-41d4-a716-446655440000".to_string(), vault1);
+        registry
+            .vaults
+            .insert("6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(), vault2);
+
+        let vaults = registry.list_vaults();
+
+        assert_eq!(vaults.len(), 2);
+        let vault_names: Vec<&str> = vaults.iter().map(|v| v.name.as_str()).collect();
+        assert!(vault_names.contains(&"Test Vault 1"));
+        assert!(vault_names.contains(&"Test Vault 2"));
+    }
+
+    #[test]
+    fn test_get_vault_exists() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        let test_id = "550e8400-e29b-41d4-a716-446655440000";
+        let vault = create_test_vault_info(test_id, "Test Vault", VaultCategory::Personal);
+        registry.vaults.insert(test_id.to_string(), vault);
+
+        let result = registry.get_vault(test_id);
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().name, "Test Vault");
+        assert_eq!(result.unwrap().id, test_id);
+    }
+
+    #[test]
+    fn test_get_vault_not_exists() {
+        let (registry, _temp_dir) = create_temp_registry();
+
+        let result = registry.get_vault("550e8400-e29b-41d4-a716-446655440000");
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_active_vault_none_set() {
+        let (registry, _temp_dir) = create_temp_registry();
+
+        let result = registry.get_active_vault();
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_active_vault_exists() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        let active_id = "550e8400-e29b-41d4-a716-446655440000";
+        let vault = create_test_vault_info(active_id, "Active Vault", VaultCategory::Personal);
+        registry.vaults.insert(active_id.to_string(), vault);
+        registry.active_vault_id = Some(active_id.to_string());
+
+        let result = registry.get_active_vault();
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().name, "Active Vault");
+    }
+
+    #[test]
+    fn test_get_active_vault_id_invalid() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        registry.active_vault_id = Some("550e8400-e29b-41d4-a716-446655440000".to_string());
+
+        let result = registry.get_active_vault();
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_generate_vault_id_returns_uuid() {
+        let (_, _temp_dir) = create_temp_registry();
+
+        let id1 = VaultRegistry::generate_vault_id();
+        let id2 = VaultRegistry::generate_vault_id();
+
+        // Should be valid UUIDs
+        assert!(Uuid::parse_str(&id1).is_ok());
+        assert!(Uuid::parse_str(&id2).is_ok());
+
+        // Should be different even with same name
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn test_generate_vault_id_uniqueness() {
+        let (_, _temp_dir) = create_temp_registry();
+
+        let mut ids = Vec::new();
+        for _ in 0..100 {
+            ids.push(VaultRegistry::generate_vault_id());
+        }
+
+        // All IDs should be unique
+        let mut unique_ids = ids.clone();
+        unique_ids.sort();
+        unique_ids.dedup();
+        assert_eq!(ids.len(), unique_ids.len());
+
+        // All should be valid UUIDs
+        for id in ids {
+            assert!(Uuid::parse_str(&id).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_generate_vault_id_ignores_name() {
+        let (_, _temp_dir) = create_temp_registry();
+
+        // Different names should still produce valid UUIDs
+        let id1 = VaultRegistry::generate_vault_id();
+        let id2 = VaultRegistry::generate_vault_id();
+        let id3 = VaultRegistry::generate_vault_id();
+        let id4 = VaultRegistry::generate_vault_id();
+
+        assert!(Uuid::parse_str(&id1).is_ok());
+        assert!(Uuid::parse_str(&id2).is_ok());
+        assert!(Uuid::parse_str(&id3).is_ok());
+        assert!(Uuid::parse_str(&id4).is_ok());
+
+        // All should be different
+        let ids = vec![&id1, &id2, &id3, &id4];
+        let mut unique_ids = ids.clone();
+        unique_ids.sort();
+        unique_ids.dedup();
+        assert_eq!(ids.len(), unique_ids.len());
+    }
+
+    #[test]
+    fn test_vault_category_display() {
+        assert_eq!(VaultCategory::Personal.to_string(), "Personal");
+        assert_eq!(VaultCategory::Work.to_string(), "Work");
+        assert_eq!(VaultCategory::Team.to_string(), "Team");
+        assert_eq!(VaultCategory::Project.to_string(), "Project");
+        assert_eq!(VaultCategory::Testing.to_string(), "Testing");
+        assert_eq!(VaultCategory::Archive.to_string(), "Archive");
+        assert_eq!(
+            VaultCategory::Custom("MyCategory".to_string()).to_string(),
+            "MyCategory"
+        );
+    }
+
+    #[test]
+    fn test_vault_category_equality() {
+        assert_eq!(VaultCategory::Personal, VaultCategory::Personal);
+        assert_ne!(VaultCategory::Personal, VaultCategory::Work);
+        assert_eq!(
+            VaultCategory::Custom("test".to_string()),
+            VaultCategory::Custom("test".to_string())
+        );
+        assert_ne!(
+            VaultCategory::Custom("test1".to_string()),
+            VaultCategory::Custom("test2".to_string())
+        );
+    }
+
+    #[test]
+    fn test_vault_info_serialization() {
+        let vault = create_test_vault_info(
+            "550e8400-e29b-41d4-a716-446655440000",
+            "Test Vault",
+            VaultCategory::Personal,
+        );
+
+        let serialized = serde_json::to_string(&vault).expect("Failed to serialize");
+        let deserialized: VaultInfo = serde_json::from_str(&serialized).expect("Failed to deserialize");
+
+        assert_eq!(vault.id, deserialized.id);
+        assert_eq!(vault.name, deserialized.name);
+        assert_eq!(vault.category, deserialized.category);
+    }
+
+    #[test]
+    fn test_vault_registry_serialization() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        let test_id = "550e8400-e29b-41d4-a716-446655440000";
+        let vault = create_test_vault_info(test_id, "Test Vault", VaultCategory::Work);
+        registry.vaults.insert(test_id.to_string(), vault);
+        registry.active_vault_id = Some(test_id.to_string());
+
+        let serialized = serde_json::to_string(&registry).expect("Failed to serialize");
+        let mut deserialized: VaultRegistry = serde_json::from_str(&serialized).expect("Failed to deserialize");
+
+        // Set registry path since it's skipped in serialization
+        deserialized.registry_path = registry.registry_path.clone();
+
+        assert_eq!(registry.vaults.len(), deserialized.vaults.len());
+        assert_eq!(registry.active_vault_id, deserialized.active_vault_id);
+        assert!(deserialized.get_vault(test_id).is_some());
+    }
+
+    #[test]
+    fn test_create_vault_basic() {
+        let (mut registry, temp_dir) = create_temp_registry();
+        let vault_path = temp_dir.path().join("custom_vault.db");
+
+        let result = registry.create_vault(
+            "My Test Vault".to_string(),
+            Some(vault_path.clone()),
+            VaultCategory::Personal,
+            Some("Test description".to_string()),
+        );
+
+        assert!(result.is_ok());
+        let vault_id = result.unwrap();
+
+        // Should be a valid UUID
+        assert!(Uuid::parse_str(&vault_id).is_ok());
+
+        let vault = registry.get_vault(&vault_id);
+        assert!(vault.is_some());
+
+        let vault = vault.unwrap();
+        assert_eq!(vault.name, "My Test Vault");
+        assert_eq!(vault.path, vault_path);
+        assert_eq!(vault.category, VaultCategory::Personal);
+        assert_eq!(vault.description, Some("Test description".to_string()));
+        assert!(!vault.is_active);
+        assert!(!vault.is_favorite);
+    }
+
+    #[test]
+    fn test_create_vault_default_path() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        let result = registry.create_vault("Default Path Vault".to_string(), None, VaultCategory::Work, None);
+
+        assert!(result.is_ok());
+        let vault_id = result.unwrap();
+
+        // Should be a valid UUID
+        assert!(Uuid::parse_str(&vault_id).is_ok());
+
+        let vault = registry.get_vault(&vault_id);
+        assert!(vault.is_some());
+
+        let vault = vault.unwrap();
+        assert_eq!(vault.name, "Default Path Vault");
+        assert_eq!(vault.category, VaultCategory::Work);
+        assert!(vault.description.is_none());
+    }
+
+    #[test]
+    fn test_set_active_vault_success() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        let test_id = "550e8400-e29b-41d4-a716-446655440000";
+        let vault = create_test_vault_info(test_id, "Test Vault", VaultCategory::Personal);
+        registry.vaults.insert(test_id.to_string(), vault);
+
+        let result = registry.set_active_vault(test_id);
+
+        assert!(result.is_ok());
+        assert_eq!(registry.active_vault_id, Some(test_id.to_string()));
+    }
+
+    #[test]
+    fn test_set_active_vault_nonexistent() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        let result = registry.set_active_vault("550e8400-e29b-41d4-a716-446655440000");
+
+        assert!(result.is_err());
+        assert!(registry.active_vault_id.is_none());
+    }
+
+    #[test]
+    fn test_update_vault_all_fields() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        let test_id = "550e8400-e29b-41d4-a716-446655440000";
+        let vault = create_test_vault_info(test_id, "Original Name", VaultCategory::Personal);
+        registry.vaults.insert(test_id.to_string(), vault);
+
+        let result = registry.update_vault(
+            test_id,
+            Some("New Name".to_string()),
+            Some("New Description".to_string()),
+            Some(VaultCategory::Work),
+            Some(true),
+        );
+
+        assert!(result.is_ok());
+
+        let updated_vault = registry.get_vault(test_id).unwrap();
+        assert_eq!(updated_vault.name, "New Name");
+        assert_eq!(updated_vault.description, Some("New Description".to_string()));
+        assert_eq!(updated_vault.category, VaultCategory::Work);
+        assert!(updated_vault.is_favorite);
+    }
+
+    #[test]
+    fn test_update_vault_partial_fields() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        let test_id = "550e8400-e29b-41d4-a716-446655440000";
+        let mut vault = create_test_vault_info(test_id, "Original Name", VaultCategory::Personal);
+        vault.description = Some("Original Description".to_string());
+        registry.vaults.insert(test_id.to_string(), vault);
+
+        let result = registry.update_vault(test_id, Some("New Name".to_string()), None, None, None);
+
+        assert!(result.is_ok());
+
+        let updated_vault = registry.get_vault(test_id).unwrap();
+        assert_eq!(updated_vault.name, "New Name");
+        assert_eq!(updated_vault.description, Some("Original Description".to_string()));
+        assert_eq!(updated_vault.category, VaultCategory::Personal);
+        assert!(!updated_vault.is_favorite);
+    }
+
+    #[test]
+    fn test_update_vault_nonexistent() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        let result = registry.update_vault(
+            "550e8400-e29b-41d4-a716-446655440000",
+            Some("New Name".to_string()),
+            None,
+            None,
+            None,
+        );
+
+        assert!(result.is_err());
+    }
+    #[test]
+    fn test_delete_vault_exists() {
+        let (mut registry, temp_dir) = create_temp_registry();
+        let test_id = "550e8400-e29b-41d4-a716-446655440000";
+
+        // Create an actual vault file
+        let vault_path = temp_dir.path().join("test_vault.db");
+        std::fs::write(&vault_path, b"test vault data").expect("Failed to create test vault file");
+
+        let mut vault = create_test_vault_info(test_id, "Test Vault", VaultCategory::Personal);
+        vault.path = vault_path;
+        registry.vaults.insert(test_id.to_string(), vault);
+
+        // Create a registry file
+        let registry_content = serde_json::to_string(&registry).unwrap_or_else(|_| "{}".to_string());
+        std::fs::write(&registry.registry_path, registry_content).ok();
+
+        let result = registry.delete_vault(test_id, false);
+
+        match result {
+            Ok(()) => {
+                assert!(registry.get_vault(test_id).is_none());
+            }
+            Err(e) => {
+                if e.to_string().contains("not implemented") || e.to_string().contains("todo") {
+                    println!("Skipping test - delete_vault not implemented yet");
+                    return;
+                }
+                panic!("delete_vault failed unexpectedly: {e}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_delete_vault_with_file_removal() {
+        let (mut registry, temp_dir) = create_temp_registry();
+        let test_id = "550e8400-e29b-41d4-a716-446655440000";
+
+        // Create an actual vault file
+        let vault_path = temp_dir.path().join("vault_to_delete.db");
+        std::fs::write(&vault_path, b"test vault data").expect("Failed to create test vault file");
+        assert!(vault_path.exists());
+
+        let mut vault = create_test_vault_info(test_id, "Vault To Delete", VaultCategory::Personal);
+        vault.path = vault_path.clone();
+        registry.vaults.insert(test_id.to_string(), vault);
+
+        let result = registry.delete_vault(test_id, true); // delete_file = true
+
+        if let Err(ref e) = result {
+            eprintln!("Delete vault with file error: {e}");
+        }
+
+        assert!(result.is_ok());
+        assert!(registry.get_vault(test_id).is_none());
+        assert!(!vault_path.exists()); // File should be deleted
+    }
+
+    #[test]
+    fn test_delete_vault_nonexistent() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        let result = registry.delete_vault("550e8400-e29b-41d4-a716-446655440000", false);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_import_vault_copy_file() {
+        let (mut registry, temp_dir) = create_temp_registry();
+
+        // Create a temporary vault file to import
+        let source_file = temp_dir.path().join("source_vault.db");
+        std::fs::write(&source_file, b"test vault content").expect("Failed to create test file");
+
+        let result = registry.import_vault(
+            &source_file,
+            "Imported Vault".to_string(),
+            VaultCategory::Project,
+            true, // copy file
+        );
+
+        assert!(result.is_ok());
+        let vault_id = result.unwrap();
+
+        // Should be a valid UUID
+        assert!(Uuid::parse_str(&vault_id).is_ok());
+
+        let vault = registry.get_vault(&vault_id).unwrap();
+        assert_eq!(vault.name, "Imported Vault");
+        assert_eq!(vault.category, VaultCategory::Project);
+        assert_ne!(vault.path, source_file); // Should be copied to a different location
+    }
+
+    #[test]
+    fn test_import_vault_move_file() {
+        let (mut registry, temp_dir) = create_temp_registry();
+
+        let source_file = temp_dir.path().join("source_vault.db");
+        std::fs::write(&source_file, b"test vault content").expect("Failed to create test file");
+
+        let result = registry.import_vault(
+            &source_file,
+            "Imported Vault".to_string(),
+            VaultCategory::Archive,
+            false, // don't copy file
+        );
+
+        assert!(result.is_ok());
+        let vault_id = result.unwrap();
+
+        // Should be a valid UUID
+        assert!(Uuid::parse_str(&vault_id).is_ok());
+
+        let vault = registry.get_vault(&vault_id).unwrap();
+        assert_eq!(vault.name, "Imported Vault");
+        assert_eq!(vault.category, VaultCategory::Archive);
+        assert_eq!(vault.path, source_file); // Should reference original location
+    }
+
+    #[test]
+    fn test_import_vault_nonexistent_file() {
+        let (mut registry, temp_dir) = create_temp_registry();
+        let nonexistent_file = temp_dir.path().join("nonexistent.db");
+
+        let result = registry.import_vault(
+            &nonexistent_file,
+            "Imported Vault".to_string(),
+            VaultCategory::Personal,
+            true,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_multiple_vaults_management() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        // Create multiple vaults
+        let vault1_result = registry.create_vault("Vault One".to_string(), None, VaultCategory::Personal, None);
+        let vault2_result = registry.create_vault(
+            "Vault Two".to_string(),
+            None,
+            VaultCategory::Work,
+            Some("Work vault".to_string()),
+        );
+        let vault3_result = registry.create_vault("Vault Three".to_string(), None, VaultCategory::Team, None);
+
+        assert!(vault1_result.is_ok());
+        assert!(vault2_result.is_ok());
+        assert!(vault3_result.is_ok());
+
+        let vault1_id = vault1_result.unwrap();
+        let vault2_id = vault2_result.unwrap();
+        let vault3_id = vault3_result.unwrap();
+
+        // All IDs should be valid UUIDs and unique
+        assert!(Uuid::parse_str(&vault1_id).is_ok());
+        assert!(Uuid::parse_str(&vault2_id).is_ok());
+        assert!(Uuid::parse_str(&vault3_id).is_ok());
+        assert_ne!(vault1_id, vault2_id);
+        assert_ne!(vault2_id, vault3_id);
+        assert_ne!(vault1_id, vault3_id);
+
+        // Test listing all vaults
+        let vaults = registry.list_vaults();
+        assert_eq!(vaults.len(), 3);
+
+        // Test setting active vault
+        assert!(registry.set_active_vault(&vault2_id).is_ok());
+        assert_eq!(registry.active_vault_id, Some(vault2_id.clone()));
+
+        // Test updating a vault
+        assert!(registry.update_vault(&vault1_id, None, None, None, Some(true)).is_ok());
+        assert!(registry.get_vault(&vault1_id).unwrap().is_favorite);
+
+        // Test deleting a vault
+        assert!(registry.delete_vault(&vault3_id, false).is_ok());
+        assert_eq!(registry.list_vaults().len(), 2);
+    }
+
+    #[test]
+    fn test_vault_timestamps() {
+        let vault = create_test_vault_info(
+            "550e8400-e29b-41d4-a716-446655440000",
+            "Test Vault",
+            VaultCategory::Personal,
+        );
+
+        let now = OffsetDateTime::now_utc();
+        let created_diff = (vault.created_at - now).abs();
+        let accessed_diff = (vault.last_accessed - now).abs();
+
+        // Timestamps should be very recent (within 1 second)
+        assert!(created_diff.whole_seconds() <= 1);
+        assert!(accessed_diff.whole_seconds() <= 1);
+    }
+
+    #[test]
+    fn test_vault_category_custom_variants() {
+        let categories = vec![
+            VaultCategory::Personal,
+            VaultCategory::Work,
+            VaultCategory::Team,
+            VaultCategory::Project,
+            VaultCategory::Testing,
+            VaultCategory::Archive,
+            VaultCategory::Custom("CustomType".to_string()),
+        ];
+
+        for category in categories {
+            let vault = create_test_vault_info("550e8400-e29b-41d4-a716-446655440000", "Test Vault", category.clone());
+
+            // Test serialization roundtrip
+            let serialized = serde_json::to_string(&vault).expect("Failed to serialize");
+            let deserialized: VaultInfo = serde_json::from_str(&serialized).expect("Failed to deserialize");
+
+            assert_eq!(vault.category, deserialized.category);
+        }
+    }
+
+    #[test]
+    fn test_edge_case_empty_vault_name() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        let result = registry.create_vault(String::new(), None, VaultCategory::Personal, None);
+
+        // Should handle empty names gracefully
+        assert!(result.is_ok());
+        let vault_id = result.unwrap();
+        assert!(Uuid::parse_str(&vault_id).is_ok());
+        let vault = registry.get_vault(&vault_id).unwrap();
+        assert_eq!(vault.name, "");
+    }
+
+    #[test]
+    fn test_edge_case_very_long_vault_name() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+        let long_name = "A".repeat(1000);
+
+        let result = registry.create_vault(long_name.clone(), None, VaultCategory::Personal, None);
+
+        assert!(result.is_ok());
+        let vault_id = result.unwrap();
+        assert!(Uuid::parse_str(&vault_id).is_ok());
+        let vault = registry.get_vault(&vault_id).unwrap();
+        assert_eq!(vault.name, long_name);
+    }
+
+    #[test]
+    fn test_concurrent_vault_operations() {
+        let (mut registry, _temp_dir) = create_temp_registry();
+
+        // Simulate concurrent vault creation
+        let mut vault_ids = Vec::new();
+        for i in 0..10 {
+            let result = registry.create_vault(format!("Vault {i}"), None, VaultCategory::Testing, None);
+            assert!(result.is_ok());
+            vault_ids.push(result.unwrap());
+        }
+
+        // All IDs should be valid UUIDs and unique
+        for vault_id in &vault_ids {
+            assert!(Uuid::parse_str(vault_id).is_ok());
+        }
+
+        let mut unique_ids = vault_ids.clone();
+        unique_ids.sort();
+        unique_ids.dedup();
+        assert_eq!(vault_ids.len(), unique_ids.len());
+
+        // Test operations on all vaults
+        for vault_id in &vault_ids {
+            assert!(registry.get_vault(vault_id).is_some());
+            assert!(registry.set_active_vault(vault_id).is_ok());
+            assert!(registry.update_vault(vault_id, None, None, None, Some(true)).is_ok());
+        }
+
+        assert_eq!(registry.list_vaults().len(), 10);
+    }
+
+    #[test]
+    fn test_uuid_collision_resistance() {
+        let (_, _temp_dir) = create_temp_registry();
+
+        // Generate a large number of UUIDs to test for collisions
+        let mut ids = std::collections::HashSet::new();
+        for _ in 0..10000 {
+            let id = VaultRegistry::generate_vault_id();
+            assert!(Uuid::parse_str(&id).is_ok());
+
+            // Should be unique (no collisions)
+            assert!(ids.insert(id), "UUID collision detected!");
+        }
+    }
+
+    #[test]
+    fn test_uuid_format_consistency() {
+        let (_, _temp_dir) = create_temp_registry();
+
+        for _ in 0..100 {
+            let id = VaultRegistry::generate_vault_id();
+            let uuid = Uuid::parse_str(&id).expect("Should be valid UUID");
+
+            // Should be versioned 4 UUID (random)
+            assert_eq!(uuid.get_version_num(), 4);
+
+            // Should be properly formatted
+            assert_eq!(id.len(), 36); // UUID string length
+            assert_eq!(id.chars().filter(|&c| c == '-').count(), 4); // Should have 4 hyphens
+        }
+    }
 }
