@@ -107,6 +107,30 @@ chamber
 ```bash
    chamber ui
 ```
+#### CLI Commands
+```bash
+Quick start:
+1. chamber init              # Initialize your first vault
+2. chamber add -n "github-token" -k apikey -v "your-token"
+3. chamber list              # View your secrets
+4. chamber ui                # Launch terminal interface
+
+Usage: chamber [COMMAND]
+
+Commands:
+  init      Initialize a new Chamber vault with master password encryption
+  add       Add a new secret item to the vault
+  list      List all secrets in the vault (names and types only)
+  get       Retrieve and display a specific secret by name
+  generate  Generate secure passwords with customizable options
+  export    Export vault contents to a file for backup or migration
+  import    Import secrets from a file into the vault
+  stats
+  backup    Backup management commands for automatic data protection
+  registry  Multiple vault management commands for organizing secrets
+  help      Print this message or the help of the given subcommand(s)
+```
+
 ## 🛠️ Development Setup
 ### Environment Setup
 1. **Install Rust toolchain**:
