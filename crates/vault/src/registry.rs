@@ -61,7 +61,7 @@ pub struct VaultRegistry {
     pub active_vault_id: Option<String>,
     /// Registry file path
     #[serde(skip)]
-    registry_path: PathBuf,
+    pub(crate) registry_path: PathBuf,
 }
 
 impl VaultRegistry {
@@ -1022,6 +1022,43 @@ mod tests {
         assert_eq!(vault.name, "Imported Vault");
         assert_eq!(vault.category, VaultCategory::Project);
         assert_ne!(vault.path, source_file); // Should be copied to a different location
+
+        // Store the copied file path for cleanup
+        let copied_file_path = vault.path.clone();
+
+        // CLEANUP: Delete the vault entry and any files that may have been created outside temp_dir
+        let cleanup_result = registry.delete_vault(&vault_id, true); // delete_file = true
+
+        // Verify cleanup was successful
+        if cleanup_result.is_ok() {
+            assert!(registry.get_vault(&vault_id).is_none());
+            // If the file was copied outside temp_dir, it should now be deleted
+            if !copied_file_path.starts_with(temp_dir.path()) {
+                assert!(
+                    !copied_file_path.exists(),
+                    "Production file should be cleaned up: {copied_file_path:?}"
+                );
+            }
+        } else {
+            // If delete_vault failed, try manual cleanup
+            eprintln!("Warning: delete_vault failed, attempting manual cleanup: {cleanup_result:?}");
+
+            // Remove from registry manually
+            registry.vaults.remove(&vault_id);
+
+            // Try to delete the copied file manually if it's outside our temp directory
+            if !copied_file_path.starts_with(temp_dir.path()) && copied_file_path.exists() {
+                if let Err(e) = std::fs::remove_file(&copied_file_path) {
+                    eprintln!("Warning: Failed to clean up test file {copied_file_path:?}: {e}");
+                }
+            }
+        }
+
+        // Final verification that we cleaned up properly
+        assert!(
+            registry.get_vault(&vault_id).is_none(),
+            "Vault should be cleaned up from registry"
+        );
     }
 
     #[test]

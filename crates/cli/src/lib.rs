@@ -906,7 +906,17 @@ pub enum Commands {
         kind: String,
         /// The secret value to store (will be encrypted)
         #[arg(short, long)]
-        value: String,
+        value: Option<String>,
+        #[arg(long, help = "Generate a secure password automatically")]
+        generate: bool,
+        #[arg(long, default_value = "16", help = "Length of generated password")]
+        length: Option<usize>,
+        #[arg(long, help = "Generate simple password (alphanumeric only)")]
+        simple: bool,
+        #[arg(long, help = "Generate complex password (all character types)")]
+        complex: bool,
+        #[arg(long, help = "Generate memorable password")]
+        memorable: bool,
     },
 
     /// List all secrets in the vault (names and types only)
@@ -1097,29 +1107,81 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
                 println!("Initialized vault at {}", vault.db_path().display());
             }
         }
-        Commands::Add { name, kind, value } => {
+        Commands::Add {
+            name,
+            kind,
+            value,
+            generate,
+            length,
+            simple,
+            complex,
+            memorable,
+        } => {
             let mut vault = Vault::open_or_create(None)?;
             let master = prompt_secret("Enter master key: ")?;
             vault.unlock(&master)?;
+
+            // Determine the value to use
+            let item_value = if generate {
+                // Validate that value wasn't also provided
+                if value.is_some() {
+                    return Err(anyhow!("Cannot use both --value and --generate options together"));
+                }
+
+                // Generate password based on options
+                let password_length = length.unwrap_or(16);
+                let generated_password = if memorable {
+                    generate_memorable_password()
+                } else if simple {
+                    generate_simple_password(password_length)?
+                } else if complex {
+                    generate_complex_password(password_length)?
+                } else {
+                    // Default: secure password with good character mix
+                    PasswordConfig::new()
+                        .with_length(password_length)
+                        .with_uppercase(true)
+                        .with_lowercase(true)
+                        .with_digits(true)
+                        .with_symbols(true)
+                        .with_exclude_ambiguous(true)
+                        .generate()?
+                };
+
+                // Show the generated password to the user
+                println!("Generated password: {generated_password}");
+                generated_password
+            } else {
+                match value {
+                    Some(v) => v,
+                    None => prompt_secret("Enter value: ")?,
+                }
+            };
+
             let kind = match kind.as_str() {
                 "pass" | "password" => ItemKind::Password,
                 "env" | "envvar" => ItemKind::EnvVar,
                 "ssh" | "sshkey" => ItemKind::SshKey,
+                "apikey" | "api_key" | "api-key" | "token" => ItemKind::ApiKey,
+                "certificate" | "cert" | "ssl" | "tls" => ItemKind::Certificate,
+                "database" | "db" | "connection" => ItemKind::Database,
                 _ => ItemKind::Note,
             };
+
             let item = NewItem {
                 name: name.clone(),
                 kind,
-                value,
+                value: item_value,
             };
+
             match vault.create_item(&item) {
                 Ok(()) => {
-                    println!("Item added.");
+                    println!("✅ Item '{name}' added successfully.");
                 }
                 Err(e) => {
                     let msg = e.to_string();
                     if msg.contains("already exists") {
-                        println!("Item '{name}' already exists. Use a different name or update it.");
+                        println!("❌ Item '{name}' already exists. Use a different name or update it.");
                         return Ok(());
                     }
                     // Other errors should still bubble up

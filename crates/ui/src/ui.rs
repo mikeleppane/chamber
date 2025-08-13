@@ -1026,6 +1026,10 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             Span::raw("Paste from clipboard (in value field)"),
         ]),
         Line::from(vec![
+            Span::styled("F2 ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+            Span::raw("Open vault registry"),
+        ]),
+        Line::from(vec![
             Span::styled("q ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
             Span::raw("Quit"),
         ]),
