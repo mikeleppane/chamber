@@ -1015,14 +1015,10 @@ simple,note,no_quotes
         let invalid_json = r#"[{"name":"test","kind":"invalid_kind","value":"test","created_at":"2024-01-01T00:00:00Z","updated_at":"2024-01-01T00:00:00Z"}]"#;
         fs::write(&path, invalid_json).unwrap();
 
-        let imported = import_items(&path, &ExportFormat::Json).unwrap();
+        let imported = import_items(&path, &ExportFormat::Json);
         fs::remove_file(&path).ok();
 
-        // ItemKind::from_str is designed to be infallible and defaults unknown kinds to Note
-        assert_eq!(imported.len(), 1);
-        assert_eq!(imported[0].name, "test");
-        assert_eq!(imported[0].kind, ItemKind::Note); // "invalid_kind" should default to Note
-        assert_eq!(imported[0].value, "test");
+        assert!(imported.is_err());
     }
 
     #[test]

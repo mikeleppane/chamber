@@ -1,3 +1,6 @@
+mod utils;
+
+use crate::utils::{filter_and_sort_items, format_relative_time};
 use anyhow::{Result, anyhow};
 use chamber_backup::BackupManager;
 use chamber_import_export::{ExportFormat, detect_format_from_extension, export_items, import_items};
@@ -920,13 +923,24 @@ pub enum Commands {
     },
 
     /// List all secrets in the vault (names and types only)
-    List,
+    List {
+        #[arg(long, help = "Filter by item type (password, apikey, envvar, etc.)")]
+        r#type: Option<String>,
+        #[arg(long, help = "Show items created since date (e.g., '1 week ago', '3 days ago')")]
+        since: Option<String>,
+        #[arg(long, help = "Show N most recent items")]
+        recent: Option<usize>,
+        #[arg(long, help = "Filter by name pattern (supports wildcards like GitHub*)")]
+        name: Option<String>,
+    },
 
     /// Retrieve and display a specific secret by name
     Get {
         /// Name of the secret to retrieve
         #[arg(short, long)]
         name: String,
+        #[arg(long, help = "Copy value to clipboard instead of displaying it")]
+        copy_value: bool,
     },
 
     /// Generate secure passwords with customizable options
@@ -1190,24 +1204,69 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
             }
         }
 
-        Commands::List => {
+        Commands::List {
+            r#type,
+            since,
+            recent,
+            name,
+        } => {
             let mut vault = Vault::open_or_create(None)?;
             let master = prompt_secret("Enter master key: ")?;
             vault.unlock(&master)?;
-            for item in vault.list_items()? {
-                println!("- {} [{}]", item.name, item.kind.as_str());
+
+            let all_items = vault.list_items()?;
+            let filtered_items =
+                match filter_and_sort_items(all_items, r#type.as_deref(), since.as_deref(), recent, name.as_deref()) {
+                    Ok(items) => items,
+                    Err(e) => {
+                        return Err(anyhow!("Error while filtering items: {e}"));
+                    }
+                };
+
+            if filtered_items.is_empty() {
+                println!("No items found matching the criteria.");
+                return Ok(());
+            }
+
+            // Display results with enhanced formatting
+            println!("Found {} item(s):", filtered_items.len());
+            println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+            for item in filtered_items {
+                let age = format_relative_time(item.created_at);
+                println!(
+                    "• {} [{}] - created {} ({})",
+                    item.name,
+                    item.kind.display_name(),
+                    age,
+                    item.created_at
+                        .format(&time::format_description::well_known::Rfc3339)
+                        .unwrap_or_else(|_| "unknown".to_string())
+                );
             }
         }
-        Commands::Get { name } => {
+
+        Commands::Get { name, copy_value } => {
             let mut vault = Vault::open_or_create(None)?;
             let master = prompt_secret("Enter master key: ")?;
             vault.unlock(&master)?;
             if let Some(item) = vault.get_item_by_name(&name)? {
-                println!("{}", item.value);
+                if copy_value {
+                    // Copy to clipboard instead of displaying
+                    let mut clipboard =
+                        arboard::Clipboard::new().map_err(|e| anyhow!("Failed to access clipboard: {}", e))?;
+                    clipboard
+                        .set_text(&item.value)
+                        .map_err(|e| anyhow!("Failed to copy to clipboard: {}", e))?;
+                    println!("✅ Value for '{name}' copied to clipboard");
+                } else {
+                    println!("{}", item.value);
+                }
             } else {
                 return Err(anyhow!("Item not found"));
             }
         }
+
         Commands::Generate {
             length,
             simple,

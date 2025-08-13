@@ -296,12 +296,14 @@ name = "chamber-cli"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "arboard",
  "chamber-backup",
  "chamber-import-export",
  "chamber-password-gen",
  "chamber-vault",
  "chrono",
  "clap",
+ "regex",
  "rpassword",
  "time",
 ]

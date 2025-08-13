@@ -31,18 +31,19 @@ pub enum ItemKind {
     Database,
 }
 
-impl std::str::FromStr for ItemKind {
-    type Err = std::convert::Infallible; // Since your current implementation never fails
+impl FromStr for ItemKind {
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let result = match s.to_lowercase().as_str() {
             "password" | "pass" | "pwd" => ItemKind::Password,
-            "env" | "envvar" | "environment" => ItemKind::EnvVar,
-            "apikey" | "api_key" | "api-key" | "token" => ItemKind::ApiKey,
-            "sshkey" | "ssh_key" | "ssh-key" | "ssh" => ItemKind::SshKey,
-            "certificate" | "cert" | "ssl" | "tls" => ItemKind::Certificate,
-            "database" | "db" | "connection" => ItemKind::Database,
-            _ => ItemKind::Note,
+            "envvar" | "env" => ItemKind::EnvVar,
+            "note" => ItemKind::Note,
+            "apikey" | "api" => ItemKind::ApiKey,
+            "sshkey" | "ssh" => ItemKind::SshKey,
+            "certificate" | "cert" => ItemKind::Certificate,
+            "database" | "db" => ItemKind::Database,
+            _ => return Err(anyhow!("Invalid item type: '{}'", s)),
         };
         Ok(result)
     }
@@ -782,29 +783,21 @@ mod lib_module_tests {
         ] {
             assert_eq!(kind.as_str(), s);
             // Fuzzy forms should still parse
-            assert_eq!(ItemKind::from_str(s), Ok(kind));
-            assert_eq!(ItemKind::from_str(&s.to_uppercase()), Ok(kind));
+            assert_eq!(ItemKind::from_str(s).unwrap(), kind);
+            assert_eq!(ItemKind::from_str(&s.to_uppercase()).unwrap(), kind);
         }
 
         // Aliases
-        assert_eq!(ItemKind::from_str("pass"), Ok(ItemKind::Password));
-        assert_eq!(ItemKind::from_str("pwd"), Ok(ItemKind::Password));
-        assert_eq!(ItemKind::from_str("envvar"), Ok(ItemKind::EnvVar));
-        assert_eq!(ItemKind::from_str("environment"), Ok(ItemKind::EnvVar));
-        assert_eq!(ItemKind::from_str("api_key"), Ok(ItemKind::ApiKey));
-        assert_eq!(ItemKind::from_str("api-key"), Ok(ItemKind::ApiKey));
-        assert_eq!(ItemKind::from_str("token"), Ok(ItemKind::ApiKey));
-        assert_eq!(ItemKind::from_str("ssh_key"), Ok(ItemKind::SshKey));
-        assert_eq!(ItemKind::from_str("ssh-key"), Ok(ItemKind::SshKey));
-        assert_eq!(ItemKind::from_str("ssh"), Ok(ItemKind::SshKey));
-        assert_eq!(ItemKind::from_str("cert"), Ok(ItemKind::Certificate));
-        assert_eq!(ItemKind::from_str("ssl"), Ok(ItemKind::Certificate));
-        assert_eq!(ItemKind::from_str("tls"), Ok(ItemKind::Certificate));
-        assert_eq!(ItemKind::from_str("db"), Ok(ItemKind::Database));
-        assert_eq!(ItemKind::from_str("connection"), Ok(ItemKind::Database));
+        assert_eq!(ItemKind::from_str("pass").unwrap(), ItemKind::Password);
+        assert_eq!(ItemKind::from_str("pwd").unwrap(), ItemKind::Password);
+        assert_eq!(ItemKind::from_str("envvar").unwrap(), ItemKind::EnvVar);
+        assert_eq!(ItemKind::from_str("api").unwrap(), ItemKind::ApiKey);
+        assert_eq!(ItemKind::from_str("ssh").unwrap(), ItemKind::SshKey);
+        assert_eq!(ItemKind::from_str("cert").unwrap(), ItemKind::Certificate);
+        assert_eq!(ItemKind::from_str("db").unwrap(), ItemKind::Database);
 
         // Unknown -> Note
-        assert_eq!(ItemKind::from_str("something-else"), Ok(ItemKind::Note));
+        assert!(ItemKind::from_str("something-else").is_err());
     }
 
     #[test]
