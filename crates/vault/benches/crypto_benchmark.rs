@@ -1,7 +1,7 @@
 use chamber_vault::crypto::{
-    aead_decrypt, aead_encrypt, derive_key, unwrap_vault_key, wrap_vault_key, KdfParams, KeyMaterial,
+    KdfParams, KeyMaterial, aead_decrypt, aead_encrypt, derive_key, unwrap_vault_key, wrap_vault_key,
 };
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use std::time::Duration;
 

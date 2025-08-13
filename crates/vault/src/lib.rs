@@ -6,8 +6,8 @@ mod registry;
 
 // Re-export commonly used types and functions for easier access
 pub use crypto::{
-    aead_decrypt, aead_encrypt, derive_key, unwrap_vault_key, wrap_vault_key, HmacSha256, KdfParams, KeyMaterial,
-    WrappedVaultKey,
+    HmacSha256, KdfParams, KeyMaterial, WrappedVaultKey, aead_decrypt, aead_encrypt, derive_key, unwrap_vault_key,
+    wrap_vault_key,
 };
 
 pub use db::{Db, ItemRow};
@@ -15,7 +15,7 @@ pub use db::{Db, ItemRow};
 pub use crate::config::BackupConfig;
 pub use crate::manager::VaultManager;
 pub use crate::registry::{VaultCategory, VaultInfo, VaultRegistry};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

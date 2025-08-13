@@ -13,17 +13,15 @@ struct MockVault {
     items: Vec<Item>,
 }
 
+#[allow(clippy::cast_possible_wrap)]
 impl MockVault {
     fn new(item_count: usize) -> Self {
         let items = (0..item_count)
             .map(|i| Item {
                 id: i as i64,
-                name: format!("benchmark_item_{}", i),
+                name: format!("benchmark_item_{i}"),
                 kind: ItemKind::Password,
-                value: format!(
-                    "benchmark_password_{}_with_additional_content_to_simulate_real_world_data",
-                    i
-                ),
+                value: format!("benchmark_password_{i}_with_additional_content_to_simulate_real_world_data"),
                 created_at: OffsetDateTime::now_utc(),
                 updated_at: OffsetDateTime::now_utc(),
             })
@@ -65,9 +63,9 @@ fn bench_backup_creation(c: &mut Criterion) {
         for format in &formats {
             for &compress in &compress_options {
                 let config_name = if compress {
-                    format!("{}_compressed", format)
+                    format!("{format}_compressed")
                 } else {
-                    format.to_string()
+                    (*format).to_string()
                 };
 
                 group.bench_with_input(
@@ -84,7 +82,7 @@ fn bench_backup_creation(c: &mut Criterion) {
                             },
                             |(_temp_dir, mut manager)| black_box(manager.force_backup().unwrap()),
                             criterion::BatchSize::SmallInput,
-                        )
+                        );
                     },
                 );
             }

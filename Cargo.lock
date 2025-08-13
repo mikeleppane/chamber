@@ -264,7 +264,7 @@ dependencies = [
 
 [[package]]
 name = "chamber"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chamber-backup",
@@ -279,7 +279,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-backup"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chamber-import-export",
@@ -293,7 +293,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chamber-backup",
@@ -308,7 +308,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-import-export"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chamber-vault",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-password-gen"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "criterion",
@@ -330,7 +330,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-ui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-vault"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "argon2",
