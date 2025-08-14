@@ -1,6 +1,6 @@
-use anyhow::Result;
 use chamber_backup::{BackupManager, VaultOperations};
 use chamber_vault::{BackupConfig, Item, ItemKind};
+use color_eyre::Result;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::time::Duration;
 use tempfile::TempDir;

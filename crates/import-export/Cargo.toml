@@ -5,11 +5,11 @@ edition = "2024"
 description = "Import/export functionality for Chamber secrets manager"
 
 [dependencies]
-anyhow = { workspace = true }
 chamber-vault = { path = "../vault" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
+color-eyre = {workspace = true}
 
 [dev-dependencies]
 criterion = { workspace = true }

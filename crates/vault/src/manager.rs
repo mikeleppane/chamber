@@ -1,6 +1,7 @@
 use crate::registry::VaultInfo;
 use crate::{Vault, VaultCategory, VaultRegistry};
-use anyhow::{Result, anyhow};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -91,7 +92,7 @@ impl VaultManager {
         let vault_info = self
             .registry
             .get_vault(&vault_id)
-            .ok_or_else(|| anyhow!("Vault with id {} not found", vault_id))?;
+            .ok_or_else(|| eyre!("Vault with id {} not found", vault_id))?;
         let mut vault = Vault::open_or_create(Some(&vault_info.path))?;
         vault.initialize(master_password)?;
 
@@ -119,7 +120,7 @@ impl VaultManager {
         let vault_info = self
             .registry
             .get_vault(vault_id)
-            .ok_or_else(|| anyhow!("Vault '{}' not found", vault_id))?;
+            .ok_or_else(|| eyre!("Vault '{}' not found", vault_id))?;
 
         let mut vault = Vault::open_or_create(Some(&vault_info.path))?;
         vault.unlock(master_password)?;
@@ -151,7 +152,7 @@ impl VaultManager {
     /// - There is an error while calling `set_active_vault`.
     pub fn switch_active_vault(&mut self, vault_id: &str) -> Result<()> {
         if !self.registry.vaults.contains_key(vault_id) {
-            return Err(anyhow!("Vault '{}' not found", vault_id));
+            return Err(eyre!("Vault '{}' not found", vault_id));
         }
 
         self.registry.set_active_vault(vault_id)?;
@@ -187,10 +188,10 @@ impl VaultManager {
             .registry
             .active_vault_id
             .as_ref()
-            .ok_or_else(|| anyhow!("No active vault"))?;
+            .ok_or_else(|| eyre!("No active vault"))?;
 
         if !self.open_vaults.contains_key(active_id) {
-            return Err(anyhow!("Active vault '{}' is not unlocked", active_id));
+            return Err(eyre!("Active vault '{}' is not unlocked", active_id));
         }
         let message = format!("Active vault '{active_id}' not found in open vaults.");
         Ok(self.open_vaults.get_mut(active_id).expect(&message))
@@ -353,7 +354,7 @@ mod tests {
     use super::*;
     use crate::registry::{VaultCategory, VaultInfo, VaultRegistry};
     use crate::{BackupConfig, Item, ItemKind};
-    use anyhow::Result;
+    use color_eyre::Result;
     use std::collections::HashMap;
     use std::fs;
     use tempfile::TempDir;

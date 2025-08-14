@@ -2,8 +2,8 @@ use crate::app::{
     AddItemField, App, ChangeKeyField, ImportExportField, ImportExportMode, PasswordGenField, Screen, StatusType,
     UnlockField, ViewMode,
 };
-use anyhow::Result;
 use chamber_vault::ItemKind;
+use color_eyre::Result;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::layout::Alignment;

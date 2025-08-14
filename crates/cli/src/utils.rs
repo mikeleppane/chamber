@@ -1,6 +1,6 @@
-use anyhow::Result;
-use anyhow::anyhow;
 use chamber_vault::{Item, ItemKind};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use regex::Regex;
 use std::str::FromStr;
 use time::{Duration, OffsetDateTime};
@@ -16,16 +16,16 @@ pub fn parse_time_expression(expr: &str) -> Result<OffsetDateTime> {
     // Match patterns like "1 week ago", "3 days ago", "2 hours ago"
     // Note: We use \d+ (not -?\d+) to explicitly reject negative numbers
     let re = Regex::new(r"^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$")
-        .map_err(|e| anyhow!("Regex error: {}", e))?;
+        .map_err(|e| eyre!("Regex error: {}", e))?;
 
     if let Some(caps) = re.captures(&expr) {
         let number: i64 = caps[1]
             .parse()
-            .map_err(|_| anyhow!("Invalid number in time expression"))?;
+            .map_err(|_| eyre!("Invalid number in time expression"))?;
 
         // Additional validation to ensure non-negative numbers only
         if number < 0 {
-            return Err(anyhow!("Time expression must use non-negative numbers"));
+            return Err(eyre!("Time expression must use non-negative numbers"));
         }
 
         let unit = &caps[2];
@@ -38,7 +38,7 @@ pub fn parse_time_expression(expr: &str) -> Result<OffsetDateTime> {
             "week" => Duration::weeks(number),
             "month" => Duration::days(number * 30), // Approximate
             "year" => Duration::days(number * 365), // Approximate
-            _ => return Err(anyhow!("Unknown time unit: {}", unit)),
+            _ => return Err(eyre!("Unknown time unit: {}", unit)),
         };
 
         return Ok(now - duration);
@@ -54,7 +54,7 @@ pub fn parse_time_expression(expr: &str) -> Result<OffsetDateTime> {
         return Ok(datetime);
     }
 
-    Err(anyhow!("Unable to parse time expression: '{}'", expr))
+    Err(eyre!("Unable to parse time expression: '{}'", expr))
 }
 
 /// Check if a name matches a wildcard pattern

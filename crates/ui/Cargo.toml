@@ -8,9 +8,9 @@ description = "TUI interface for Chamber secrets manager"
 chamber-vault = {workspace = true}
 chamber-password-gen = {workspace = true}
 chamber-import-export = {workspace = true}
-anyhow = { workspace = true }
 dirs = { workspace = true }
 ratatui = { workspace = true }
 arboard = { workspace = true }
 time = {workspace = true}
 tui-textarea = {workspace = true}
+color-eyre = {workspace = true}

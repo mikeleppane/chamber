@@ -1,6 +1,7 @@
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use rand::seq::{IndexedRandom, SliceRandom};
 use rand::{Rng, rng};
-
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
 pub struct PasswordConfig {
@@ -139,9 +140,9 @@ impl PasswordConfig {
     ///   a group of valid characters (e.g., lowercase, uppercase, digits, symbols).
     /// - The password length is determined by `self.length`, which should already be validated to be a valid size.
     /// - This method uses randomness; ensure you have a valid random number generator (`rng()`).
-    pub fn generate(&self) -> anyhow::Result<String> {
+    pub fn generate(&self) -> Result<String> {
         if !self.is_valid() {
-            return Err(anyhow::anyhow!("At least one character set must be enabled"));
+            return Err(eyre!("At least one character set must be enabled"));
         }
 
         let character_sets = self.get_character_sets();
@@ -149,7 +150,7 @@ impl PasswordConfig {
         let all_chars: Vec<char> = all_chars.chars().collect();
 
         if all_chars.is_empty() {
-            return Err(anyhow::anyhow!("No valid characters available"));
+            return Err(eyre!("No valid characters available"));
         }
 
         let mut rng = rng();
@@ -201,7 +202,7 @@ impl PasswordConfig {
 ///
 /// Note: Ensure the `length` parameter is a positive value within acceptable limits
 /// supported by the password generator, as extremely large lengths may cause failures.
-pub fn generate_simple_password(length: usize) -> anyhow::Result<String> {
+pub fn generate_simple_password(length: usize) -> Result<String> {
     PasswordConfig::new().with_length(length).with_symbols(false).generate()
 }
 
@@ -232,7 +233,7 @@ pub fn generate_simple_password(length: usize) -> anyhow::Result<String> {
 ///
 /// # Dependencies
 /// - The function relies on the `PasswordConfig` struct and its associated methods, which are assumed to be properly defined elsewhere in the codebase.
-pub fn generate_complex_password(length: usize) -> anyhow::Result<String> {
+pub fn generate_complex_password(length: usize) -> Result<String> {
     PasswordConfig::new()
         .with_length(length)
         .with_exclude_ambiguous(false)

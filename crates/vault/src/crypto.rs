@@ -1,7 +1,8 @@
-use anyhow::{Result, anyhow};
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::aead::{Aead, KeyInit};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -124,12 +125,12 @@ pub fn derive_key(master: &str, kdf: &KdfParams) -> Result<KeyMaterial> {
     let argon2 = Argon2::new(
         Algorithm::Argon2id,
         Version::V0x13,
-        Params::new(kdf.m_cost_kib, kdf.t_cost, kdf.p_cost, Some(32)).map_err(|e| anyhow!("{e}"))?,
+        Params::new(kdf.m_cost_kib, kdf.t_cost, kdf.p_cost, Some(32)).map_err(|e| eyre!("{e}"))?,
     );
     let mut out = [0u8; 32];
     argon2
         .hash_password_into(master.as_bytes(), &kdf.salt, &mut out)
-        .map_err(|e| anyhow!("{e}"))?;
+        .map_err(|e| eyre!("{e}"))?;
     Ok(KeyMaterial(out))
 }
 
@@ -178,7 +179,7 @@ pub fn wrap_vault_key(master_derived: &KeyMaterial, vault_key: &KeyMaterial) -> 
     getrandom::fill(&mut nonce)?;
     let ct = aead
         .encrypt(XNonce::from_slice(&nonce), vault_key.0.as_ref())
-        .map_err(|_| anyhow!("AEAD encrypt failed"))?;
+        .map_err(|_| eyre!("AEAD encrypt failed"))?;
     let wrapped = WrappedVaultKey {
         nonce: nonce.to_vec(),
         ciphertext: ct,
@@ -231,13 +232,13 @@ pub fn unwrap_vault_key(
     if let Some(v) = verifier {
         let mut mac = <HmacSha256 as Mac>::new_from_slice(&master_derived.0)?;
         mac.update(b"chamber-verifier");
-        mac.verify_slice(v).map_err(|_| anyhow!("Verifier mismatch"))?;
+        mac.verify_slice(v).map_err(|_| eyre!("Verifier mismatch"))?;
     }
     let aead = XChaCha20Poly1305::new((&master_derived.0).into());
     let nonce = XNonce::from_slice(&wrapped.nonce);
     let pt = aead
         .decrypt(nonce, wrapped.ciphertext.as_ref())
-        .map_err(|_| anyhow!("AEAD decrypt failed"))?;
+        .map_err(|_| eyre!("AEAD decrypt failed"))?;
     let mut key = [0u8; 32];
     key.copy_from_slice(&pt);
     Ok(KeyMaterial(key))
@@ -290,7 +291,7 @@ pub fn aead_encrypt(vault_key: &KeyMaterial, plaintext: &[u8], ad: &[u8]) -> Res
                 aad: ad,
             },
         )
-        .map_err(|_| anyhow!("encrypt failed"))?;
+        .map_err(|_| eyre!("encrypt failed"))?;
     Ok((nonce.to_vec(), ct))
 }
 
@@ -327,7 +328,7 @@ pub fn aead_decrypt(vault_key: &KeyMaterial, nonce: &[u8], ciphertext: &[u8], ad
                 aad: ad,
             },
         )
-        .map_err(|_| anyhow!("decrypt failed"))?;
+        .map_err(|_| eyre!("decrypt failed"))?;
     Ok(pt)
 }
 

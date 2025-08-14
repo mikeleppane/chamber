@@ -1,7 +1,8 @@
+mod health;
 mod utils;
 
+use crate::health::handle_health_command;
 use crate::utils::{filter_and_sort_items, format_relative_time};
-use anyhow::{Result, anyhow};
 use chamber_backup::BackupManager;
 use chamber_import_export::{ExportFormat, detect_format_from_extension, export_items, import_items};
 use chamber_password_gen::{
@@ -9,6 +10,8 @@ use chamber_password_gen::{
 };
 use chamber_vault::{BackupConfig, ItemKind, NewItem, Vault, VaultCategory, VaultManager};
 use clap::{Parser, Subcommand};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use time::{Duration, OffsetDateTime};
@@ -249,7 +252,7 @@ pub fn handle_vault_command(manager: &mut VaultManager, cmd: VaultCommand) -> Re
                 manager
                     .registry
                     .get_active_vault()
-                    .ok_or_else(|| anyhow::anyhow!("No active vault"))?
+                    .ok_or_else(|| eyre!("No active vault"))?
                     .id
                     .clone()
             };
@@ -321,7 +324,7 @@ fn find_vault_id(manager: &VaultManager, identifier: &str) -> Result<String> {
         }
     }
 
-    Err(anyhow::anyhow!("Vault '{}' not found", identifier))
+    Err(eyre!("Vault '{}' not found", identifier))
 }
 
 #[derive(Subcommand, Debug)]
@@ -515,7 +518,7 @@ fn handle_configure(
 
     if let Some(hours) = interval {
         if hours == 0 {
-            return Err(anyhow!("Backup interval must be greater than 0"));
+            return Err(eyre!("Backup interval must be greater than 0"));
         }
         config.interval_hours = hours;
         changed = true;
@@ -524,7 +527,7 @@ fn handle_configure(
 
     if let Some(max) = max_backups {
         if max == 0 {
-            return Err(anyhow!("Max backups must be greater than 0"));
+            return Err(eyre!("Max backups must be greater than 0"));
         }
         config.max_backups = max;
         changed = true;
@@ -544,7 +547,7 @@ fn handle_configure(
                 changed = true;
                 println!("Backup format set to: {fmt}");
             }
-            _ => return Err(anyhow!("Invalid format '{}'. Use: json, csv, or backup", fmt)),
+            _ => return Err(eyre!("Invalid format '{}'. Use: json, csv, or backup", fmt)),
         }
     }
 
@@ -597,7 +600,7 @@ fn handle_backup_now(mut vault: Vault, output: Option<PathBuf>, force: bool) -> 
     } else {
         backup_manager
             .backup_if_needed()?
-            .ok_or_else(|| anyhow!("No backup needed (use --force to create anyway)"))?
+            .ok_or_else(|| eyre!("No backup needed (use --force to create anyway)"))?
     };
 
     println!("✅ Backup created successfully: {}", backup_path.display());
@@ -664,7 +667,7 @@ fn handle_list_backups(vault: Vault, verbose: bool) -> Result<()> {
 
 fn handle_restore_backup(mut vault: Vault, backup_path: &Path, skip_confirmation: bool) -> Result<()> {
     if !backup_path.exists() {
-        return Err(anyhow!("Backup file not found: {}", backup_path.display()));
+        return Err(eyre!("Backup file not found: {}", backup_path.display()));
     }
 
     // Verify backup first
@@ -851,19 +854,19 @@ fn print_backup_config(config: &BackupConfig) {
 
 fn verify_backup_file(backup_path: &std::path::Path) -> Result<()> {
     if !backup_path.exists() {
-        return Err(anyhow!("Backup file does not exist"));
+        return Err(eyre!("Backup file does not exist"));
     }
 
     let metadata = std::fs::metadata(backup_path)?;
     if metadata.len() == 0 {
-        return Err(anyhow!("Backup file is empty"));
+        return Err(eyre!("Backup file is empty"));
     }
 
     // Try to parse the backup based on format
-    if let Some(format) = chamber_import_export::detect_format_from_extension(backup_path) {
-        chamber_import_export::import_items(backup_path, &format)?;
+    if let Some(format) = detect_format_from_extension(backup_path) {
+        import_items(backup_path, &format)?;
     } else {
-        return Err(anyhow!("Unable to detect backup format"));
+        return Err(eyre!("Unable to detect backup format"));
     }
 
     Ok(())
@@ -921,6 +924,12 @@ pub enum Commands {
         complex: bool,
         #[arg(long, help = "Generate memorable password")]
         memorable: bool,
+    },
+
+    /// Show vault health report
+    Health {
+        #[arg(long, help = "Show detailed health analysis")]
+        detailed: bool,
     },
 
     /// List all secrets in the vault (names and types only)
@@ -1117,7 +1126,7 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
                 let master = prompt_secret("Create master key: ")?;
                 let confirm = prompt_secret("Confirm master key: ")?;
                 if master != confirm {
-                    return Err(anyhow!("Master keys do not match"));
+                    return Err(eyre!("Master keys do not match"));
                 }
                 vault.initialize(&master)?;
                 println!("Initialized vault at {}", vault.db_path().display());
@@ -1141,7 +1150,7 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
             let item_value = if generate {
                 // Validate that value wasn't also provided
                 if value.is_some() {
-                    return Err(anyhow!("Cannot use both --value and --generate options together"));
+                    return Err(eyre!("Cannot use both --value and --generate options together"));
                 }
 
                 // Generate password based on options
@@ -1206,6 +1215,24 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
             }
         }
 
+        Commands::Health { detailed } => {
+            let mut vault = match Vault::open_active() {
+                Ok(vault) => vault,
+                Err(_) => {
+                    // If no active vault, try default
+                    Vault::open_default()?
+                }
+            };
+
+            let master = prompt_secret("Enter master key: ")?;
+            vault.unlock(&master)?;
+            if !vault.is_unlocked() {
+                eprintln!("❌ Vault is locked. Please unlock it first.");
+                std::process::exit(1);
+            }
+            handle_health_command(&vault, detailed)?;
+        }
+
         Commands::List {
             r#type,
             since,
@@ -1221,7 +1248,7 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
                 match filter_and_sort_items(all_items, r#type.as_deref(), since.as_deref(), recent, name.as_deref()) {
                     Ok(items) => items,
                     Err(e) => {
-                        return Err(anyhow!("Error while filtering items: {e}"));
+                        return Err(eyre!("Error while filtering items: {e}"));
                     }
                 };
 
@@ -1256,16 +1283,16 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
                 if copy_value {
                     // Copy to clipboard instead of displaying
                     let mut clipboard =
-                        arboard::Clipboard::new().map_err(|e| anyhow!("Failed to access clipboard: {}", e))?;
+                        arboard::Clipboard::new().map_err(|e| eyre!("Failed to access clipboard: {}", e))?;
                     clipboard
                         .set_text(&item.value)
-                        .map_err(|e| anyhow!("Failed to copy to clipboard: {}", e))?;
+                        .map_err(|e| eyre!("Failed to copy to clipboard: {}", e))?;
                     println!("✅ Value for '{name}' copied to clipboard");
                 } else {
                     println!("{}", item.value);
                 }
             } else {
-                return Err(anyhow!("Item not found"));
+                return Err(eyre!("Item not found"));
             }
         }
 
@@ -1347,7 +1374,7 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
             skip_duplicates,
         } => {
             if !input.exists() {
-                return Err(anyhow!("Input file does not exist: {}", input.display()));
+                return Err(eyre!("Input file does not exist: {}", input.display()));
             }
 
             // Determine format
@@ -1356,7 +1383,7 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
             } else {
                 // Try to detect from file extension
                 detect_format_from_extension(&input)
-                    .ok_or_else(|| anyhow!("Could not detect file format. Please specify with --format"))?
+                    .ok_or_else(|| eyre!("Could not detect file format. Please specify with --format"))?
             };
 
             let new_items = import_items(&input, &import_format)?;
