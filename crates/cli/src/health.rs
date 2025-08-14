@@ -313,3 +313,83 @@ fn simple_hash(input: &str) -> String {
     input.hash(&mut hasher);
     format!("{:x}", hasher.finish())
 }
+
+pub fn analyze_password_strength(password: &str) -> String {
+    let length = password.len();
+    let has_lower = password.chars().any(|c| c.is_ascii_lowercase());
+    let has_upper = password.chars().any(|c| c.is_ascii_uppercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    let has_special = password.chars().any(|c| !c.is_ascii_alphanumeric());
+
+    let mut score: i32 = 0;
+    let mut issues = Vec::new();
+
+    // Length scoring
+    if length >= 16 {
+        score += 3;
+    } else if length >= 12 {
+        score += 2;
+    } else if length >= 8 {
+        score += 1;
+    } else {
+        issues.push("too short");
+    }
+
+    // Character variety
+    if has_lower {
+        score += 1;
+    } else {
+        issues.push("no lowercase");
+    }
+    if has_upper {
+        score += 1;
+    } else {
+        issues.push("no uppercase");
+    }
+    if has_digit {
+        score += 1;
+    } else {
+        issues.push("no digits");
+    }
+    if has_special {
+        score += 1;
+    } else {
+        issues.push("no special chars");
+    }
+
+    // Check for common passwords
+    if is_common_password(password) {
+        score = score.saturating_sub(3);
+        issues.push("common password");
+    }
+
+    // Check for repeated characters
+    if has_repeated_chars(password) {
+        score = score.saturating_sub(1);
+        issues.push("repeated characters");
+    }
+
+    let (strength_text, emoji) = match score {
+        8..=10 => ("Very Strong", "🟢"),
+        6..=7 => ("Strong", "🟡"),
+        4..=5 => ("Medium", "🟠"),
+        2..=3 => ("Weak", "🔴"),
+        _ => ("Very Weak", "🔴"),
+    };
+
+    if issues.is_empty() {
+        format!("{emoji} {strength_text}")
+    } else {
+        format!("{} {} ({})", emoji, strength_text, issues.join(", "))
+    }
+}
+
+fn has_repeated_chars(password: &str) -> bool {
+    let chars: Vec<char> = password.chars().collect();
+    for window in chars.windows(3) {
+        if window[0] == window[1] && window[1] == window[2] {
+            return true;
+        }
+    }
+    false
+}

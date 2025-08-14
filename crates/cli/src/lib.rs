@@ -1,14 +1,14 @@
 mod health;
 mod utils;
 
-use crate::health::handle_health_command;
+use crate::health::{analyze_password_strength, handle_health_command};
 use crate::utils::{filter_and_sort_items, format_relative_time};
 use chamber_backup::BackupManager;
 use chamber_import_export::{ExportFormat, detect_format_from_extension, export_items, import_items};
 use chamber_password_gen::{
     PasswordConfig, generate_complex_password, generate_memorable_password, generate_simple_password,
 };
-use chamber_vault::{BackupConfig, ItemKind, NewItem, Vault, VaultCategory, VaultManager};
+use chamber_vault::{BackupConfig, Item, ItemKind, NewItem, Vault, VaultCategory, VaultManager};
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use color_eyre::eyre::eyre;
@@ -1017,6 +1017,27 @@ pub enum Commands {
     },
     Stats,
 
+    Update {
+        #[arg(short, long, help = "Name of the item to update")]
+        name: String,
+        #[arg(short, long, help = "New value for the item")]
+        value: Option<String>,
+        #[arg(long, help = "Generate a new secure password automatically")]
+        generate: bool,
+        #[arg(long, default_value = "16", help = "Length of generated password")]
+        length: Option<usize>,
+        #[arg(long, help = "Generate simple password (alphanumeric only)")]
+        simple: bool,
+        #[arg(long, help = "Generate complex password (all character types)")]
+        complex: bool,
+        #[arg(long, help = "Generate memorable password")]
+        memorable: bool,
+        #[arg(long, help = "Copy updated value to clipboard")]
+        copy: bool,
+        #[arg(long, help = "Specify which vault to search in (otherwise searches all)")]
+        vault: Option<String>,
+    },
+
     /// Backup management commands for automatic data protection
     #[command(subcommand)]
     Backup(BackupCommand),
@@ -1090,6 +1111,8 @@ pub enum Commands {
 /// - IO errors while exporting or importing.
 /// - Validation errors during input or conflicts in item names.
 /// - Password generation errors for invalid configurations.
+///
+/// # Panics
 ///
 /// # Examples
 /// ```ignore
@@ -1458,6 +1481,141 @@ pub fn handle_command(cmd: Commands) -> Result<()> {
             handle_stats_command(&vault)?;
         }
 
+        Commands::Update {
+            name,
+            value,
+            generate,
+            length,
+            simple,
+            complex,
+            memorable,
+            copy,
+            vault: vault_name,
+        } => {
+            // First, try to find the item across all vaults
+            let (vault, existing_item, found_vault_name) = if let Some(specific_vault) = vault_name.clone() {
+                // Search only in the specified vault
+                find_item_in_specific_vault(&name, &specific_vault)?
+            } else {
+                // Search across all vaults
+                find_item_across_vaults(&name)?
+            };
+
+            if let (mut vault, Some(item), vault_name) = (vault, existing_item, found_vault_name) {
+                println!("🔍 Found '{name}' in vault: {vault_name}");
+                println!("📝 Updating '{}' [{}]", item.name, item.kind.display_name());
+
+                // Determine the new value to use
+                let new_value = if generate {
+                    // Validate that value wasn't also provided
+                    if value.is_some() {
+                        return Err(eyre!("Cannot use both --value and --generate options together"));
+                    }
+
+                    // Generate password based on options
+                    let password_length = length.unwrap_or(16);
+                    let generated_password = if memorable {
+                        generate_memorable_password()
+                    } else if simple {
+                        generate_simple_password(password_length)?
+                    } else if complex {
+                        generate_complex_password(password_length)?
+                    } else {
+                        // Default: secure password with good character mix
+                        PasswordConfig::new()
+                            .with_length(password_length)
+                            .with_uppercase(true)
+                            .with_lowercase(true)
+                            .with_digits(true)
+                            .with_symbols(true)
+                            .with_exclude_ambiguous(true)
+                            .generate()?
+                    };
+
+                    println!("🔐 Generated new password: {generated_password}");
+                    generated_password
+                } else if let Some(v) = value {
+                    println!("📝 Using provided value");
+                    v
+                } else {
+                    // Interactive mode - show current value (masked for passwords)
+                    let display_current = if matches!(item.kind, ItemKind::Password | ItemKind::ApiKey) {
+                        format!("{}***", &item.value.chars().take(3).collect::<String>())
+                    } else {
+                        #[allow(clippy::redundant_clone)]
+                        item.value.clone()
+                    };
+
+                    println!("Current value: {display_current}");
+                    prompt_secret("Enter new value (or press Ctrl+C to cancel): ")?
+                };
+
+                // Confirm if values are the same
+                if new_value == item.value {
+                    println!("⚠️  New value is the same as the current value. No changes made.");
+                    return Ok(());
+                }
+
+                // Update the item
+                match vault.update_item(item.id, &new_value) {
+                    Ok(()) => {
+                        println!("✅ Item '{name}' updated successfully in vault '{vault_name}'.");
+
+                        // Show password strength for password-type items
+                        if matches!(item.kind, ItemKind::Password | ItemKind::ApiKey) {
+                            let strength = analyze_password_strength(&new_value);
+                            println!("🔒 Password strength: {strength}");
+                        }
+
+                        // Copy to clipboard if requested
+                        if copy {
+                            match arboard::Clipboard::new() {
+                                Ok(mut clipboard) => {
+                                    if let Err(e) = clipboard.set_text(&new_value) {
+                                        println!("⚠️  Warning: Failed to copy to clipboard: {e}");
+                                    } else {
+                                        println!("📋 New value copied to clipboard.");
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("⚠️  Warning: Failed to access clipboard: {e}");
+                                }
+                            }
+                        }
+
+                        // Show update timestamp
+                        println!(
+                            "🕐 Updated at: {}",
+                            OffsetDateTime::now_utc()
+                                .format(&time::format_description::well_known::Rfc3339)
+                                .unwrap_or_else(|_| "unknown".to_string())
+                        );
+                    }
+                    Err(e) => {
+                        return Err(eyre!("Failed to update item: {}", e));
+                    }
+                }
+            } else {
+                println!(
+                    "❌ Item '{}' not found{}.",
+                    name,
+                    if vault_name.is_some() {
+                        format!(" in vault '{}'", vault_name.unwrap())
+                    } else {
+                        " in any vault".to_string()
+                    }
+                );
+
+                // Show suggestions from all vaults
+                suggest_similar_items_across_vaults(&name)?;
+
+                println!();
+                println!("💡 Use 'chamber list' to see items in current vault");
+                println!("💡 Use 'chamber registry list' to see all vaults");
+                println!("💡 Use 'chamber add' to create a new item");
+            }
+        }
+
         Commands::Backup(backup_cmd) => {
             let vault = Vault::open_or_create(None)?;
             let _ = handle_backup_command(vault, backup_cmd);
@@ -1772,6 +1930,156 @@ fn prompt_secret(prompt: &str) -> Result<String> {
     // Read without echo on Windows/Linux/macOS
     let pass = rpassword::prompt_password("")?;
     Ok(pass)
+}
+
+/// Searches for an item by name across all available vaults
+/// Returns (vault, item, `vault_name`) if found, or (_, None, _) if not found
+fn find_item_across_vaults(item_name: &str) -> Result<(Vault, Option<Item>, String)> {
+    let manager = VaultManager::new()?;
+    let vaults = manager.list_vaults();
+
+    // First try the active vault
+    if let Ok(mut vault) = Vault::open_active() {
+        if let Ok(Some(vault_id)) = vault.get_vault_id() {
+            let master = prompt_secret(&format!(
+                "Enter master key for active vault ({}): ",
+                get_vault_display_name(&manager, &vault_id)
+            ))?;
+
+            if vault.unlock(&master).is_ok() {
+                if let Ok(Some(item)) = vault.get_item_by_name(item_name) {
+                    let vault_name = get_vault_display_name(&manager, &vault_id);
+                    return Ok((vault, Some(item), vault_name));
+                }
+            }
+        }
+    }
+
+    // If not found in active vault, search all other vaults
+    let mut tried_vaults = Vec::new();
+
+    for vault_info in vaults {
+        // Skip if it's the active vault (already tried)
+        if let Ok(active_vault) = Vault::open_active() {
+            if let Ok(Some(active_id)) = active_vault.get_vault_id() {
+                if vault_info.id == active_id {
+                    continue;
+                }
+            }
+        }
+
+        println!("🔍 Searching in vault: {} ({})", vault_info.name, vault_info.category);
+
+        let master = prompt_secret(&format!("Enter master key for '{}': ", vault_info.name))?;
+
+        match Vault::open_by_id(&vault_info.id) {
+            Ok(mut vault) => match vault.unlock(&master) {
+                Ok(()) => {
+                    tried_vaults.push(vault_info.name.clone());
+                    if let Ok(Some(item)) = vault.get_item_by_name(item_name) {
+                        return Ok((vault, Some(item), vault_info.name.clone()));
+                    }
+                }
+                Err(_) => {
+                    println!("❌ Failed to unlock vault '{}' (incorrect password?)", vault_info.name);
+                }
+            },
+            Err(e) => {
+                println!("❌ Failed to open vault '{}': {}", vault_info.name, e);
+            }
+        }
+    }
+
+    if !tried_vaults.is_empty() {
+        println!(
+            "🔍 Searched in {} vault(s): {}",
+            tried_vaults.len(),
+            tried_vaults.join(", ")
+        );
+    }
+
+    // Return empty result if not found anywhere
+    Ok((Vault::open_default()?, None, String::new()))
+}
+
+/// Gets a user-friendly display name for a vault
+fn get_vault_display_name(manager: &VaultManager, vault_id: &str) -> String {
+    if let Some(vault_info) = manager.list_vaults().iter().find(|v| v.id == vault_id) {
+        format!("{} ({})", vault_info.name, vault_info.category)
+    } else {
+        vault_id.to_string()
+    }
+}
+
+/// Suggests similar items from all vaults
+fn suggest_similar_items_across_vaults(item_name: &str) -> Result<()> {
+    let manager = VaultManager::new()?;
+    let vaults = manager.list_vaults();
+    let mut suggestions = Vec::new();
+
+    for vault_info in vaults {
+        // Try to open and search each vault (but don't prompt for password for suggestions)
+        if let Ok(vault) = Vault::open_by_id(&vault_info.id) {
+            // Only suggest from already unlocked vaults to avoid password prompts
+            if vault.is_unlocked() {
+                if let Ok(items) = vault.list_items() {
+                    for item in items {
+                        if is_similar_name(&item.name, item_name) {
+                            suggestions.push((item.name, item.kind, vault_info.name.clone()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if !suggestions.is_empty() {
+        println!("💡 Did you mean one of these?");
+        for (name, kind, vault_name) in suggestions.into_iter().take(5) {
+            println!("   • {} [{}] in vault '{}'", name, kind.display_name(), vault_name);
+        }
+    }
+
+    Ok(())
+}
+
+/// Simple fuzzy matching for item names
+fn is_similar_name(item_name: &str, search_name: &str) -> bool {
+    let item_lower = item_name.to_lowercase();
+    let search_lower = search_name.to_lowercase();
+
+    // Check if names contain each other
+    if item_lower.contains(&search_lower) || search_lower.contains(&item_lower) {
+        return true;
+    }
+
+    // Check for common substrings of length 3+
+    if search_lower.len() >= 3 {
+        search_lower.chars().collect::<Vec<_>>().windows(3).any(|window| {
+            let substr: String = window.iter().collect();
+            item_lower.contains(&substr)
+        })
+    } else {
+        false
+    }
+}
+
+fn find_item_in_specific_vault(item_name: &str, vault_identifier: &str) -> Result<(Vault, Option<Item>, String)> {
+    let manager = VaultManager::new()?;
+    let vaults = manager.list_vaults();
+
+    // Find the vault by name or ID
+    let vault_info = vaults
+        .iter()
+        .find(|v| v.name.eq_ignore_ascii_case(vault_identifier) || v.id == vault_identifier)
+        .ok_or_else(|| eyre!("Vault '{}' not found", vault_identifier))?;
+
+    let mut vault = Vault::open_by_id(&vault_info.id)?;
+    let master = prompt_secret(&format!("Enter master key for '{}': ", vault_info.name))?;
+    vault.unlock(&master)?;
+
+    let item = vault.get_item_by_name(item_name)?;
+    Ok((vault, item, vault_info.name.clone()))
 }
 
 // Rust
