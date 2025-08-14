@@ -1,9 +1,10 @@
 use crate::app;
 use crate::vault_selector::{VaultAction, VaultSelector, VaultSelectorMode};
-use anyhow::{Result, anyhow};
 use chamber_import_export::{ExportFormat, export_items, import_items};
 use chamber_password_gen::PasswordConfig;
 use chamber_vault::{Item, ItemKind, NewItem, Vault, VaultManager};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use ratatui::prelude::Style;
 use ratatui::style::Color;
 use std::path::PathBuf;
@@ -276,16 +277,16 @@ impl App {
 
     fn validate_master_strength(s: &str) -> Result<()> {
         if s.len() < 8 {
-            return Err(anyhow!("Master key must be at least 8 characters long"));
+            return Err(eyre!("Master key must be at least 8 characters long"));
         }
         if !s.chars().any(|c| c.is_ascii_lowercase()) {
-            return Err(anyhow!("Master key must contain a lowercase letter"));
+            return Err(eyre!("Master key must contain a lowercase letter"));
         }
         if !s.chars().any(|c| c.is_ascii_uppercase()) {
-            return Err(anyhow!("Master key must contain an uppercase letter"));
+            return Err(eyre!("Master key must contain an uppercase letter"));
         }
         if !s.chars().any(|c| c.is_ascii_digit()) {
-            return Err(anyhow!("Master key must contain a digit"));
+            return Err(eyre!("Master key must contain a digit"));
         }
         Ok(())
     }
@@ -661,10 +662,10 @@ impl App {
     ///
     pub fn copy_selected(&mut self) -> Result<()> {
         if let Some(item) = self.get_selected_item() {
-            let mut clipboard = arboard::Clipboard::new().map_err(|e| anyhow!("Failed to access clipboard: {}", e))?;
+            let mut clipboard = arboard::Clipboard::new().map_err(|e| eyre!("Failed to access clipboard: {}", e))?;
             clipboard
                 .set_text(&item.value)
-                .map_err(|e| anyhow!("Failed to copy to clipboard: {}", e))?;
+                .map_err(|e| eyre!("Failed to copy to clipboard: {}", e))?;
             self.set_status(format!("Copied '{}' to clipboard", item.name), StatusType::Success);
         }
         Ok(())
@@ -786,10 +787,10 @@ impl App {
     /// This function makes use of the `arboard` crate for clipboard access and text manipulation.
     pub fn copy_generated_password(&mut self) -> Result<()> {
         if let Some(password) = &self.generated_password {
-            let mut clipboard = arboard::Clipboard::new().map_err(|e| anyhow!("Failed to access clipboard: {}", e))?;
+            let mut clipboard = arboard::Clipboard::new().map_err(|e| eyre!("Failed to access clipboard: {}", e))?;
             clipboard
                 .set_text(password)
-                .map_err(|e| anyhow!("Failed to copy to clipboard: {}", e))?;
+                .map_err(|e| eyre!("Failed to copy to clipboard: {}", e))?;
             self.error = Some("Password copied to clipboard".into());
         }
         Ok(())
@@ -875,7 +876,7 @@ impl App {
                 if let Some(parent) = path.parent() {
                     if !parent.exists() {
                         std::fs::create_dir_all(parent)
-                            .map_err(|e| anyhow!("Failed to create directory {}: {}", parent.display(), e))?;
+                            .map_err(|e| eyre!("Failed to create directory {}: {}", parent.display(), e))?;
                     }
                 }
 
@@ -936,7 +937,7 @@ impl App {
                 };
                 home_dir.join(rest).to_string_lossy().to_string()
             } else {
-                return Err(anyhow!("Unable to determine home directory"));
+                return Err(eyre!("Unable to determine home directory"));
             }
         } else {
             path_str.to_string()
@@ -1126,7 +1127,7 @@ impl App {
                     .vault_manager
                     .registry
                     .get_vault(vault_id)
-                    .ok_or_else(|| anyhow!("Vault with id {} not found", vault_id))?;
+                    .ok_or_else(|| eyre!("Vault with id {} not found", vault_id))?;
                 let mut new_vault = chamber_vault::Vault::open_or_create(Some(&vault_info.path))?;
                 new_vault.unlock(&self.master_input)?;
 
@@ -1169,7 +1170,7 @@ impl App {
 
         match self
             .vault_manager
-            .create_vault((name).to_string(), None, vault_category, description, password)
+            .create_vault(name.to_string(), None, vault_category, description, password)
         {
             Ok(_vault_id) => {
                 self.vault_selector.load_vaults(&self.vault_manager);

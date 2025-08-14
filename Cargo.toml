@@ -30,9 +30,9 @@ chamber-vault = {path = "crates/vault"}
 chamber-ui = {path = "crates/ui"}
 chamber-backup = {path = "crates/backup"}
 # Crypto dependencies
-anyhow = "1.0.98"
 argon2 = { version = "0.5.3", features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", features = ["alloc", "std"] }
+color-eyre = "0.6.5"
 getrandom = { version = "0.3.3", features = ["std"] }
 hmac = "0.12.1"
 sha2 = "0.10.9"

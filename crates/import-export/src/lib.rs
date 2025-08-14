@@ -1,5 +1,7 @@
-use anyhow::{Result, anyhow};
 use chamber_vault::{Item, ItemKind, NewItem};
+use color_eyre::Result;
+use color_eyre::eyre::Error;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
@@ -14,17 +16,14 @@ pub enum ExportFormat {
 }
 
 impl FromStr for ExportFormat {
-    type Err = anyhow::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "json" => Ok(ExportFormat::Json),
             "csv" => Ok(ExportFormat::Csv),
             "backup" | "chamber" => Ok(ExportFormat::ChamberBackup),
-            _ => Err(anyhow!(
-                "Unsupported format: {}. Supported formats: json, csv, backup",
-                s
-            )),
+            _ => Err(eyre!("Unsupported format: {}. Supported formats: json, csv, backup", s)),
         }
     }
 }
@@ -182,7 +181,7 @@ pub fn import_items(input_path: &Path, format: &ExportFormat) -> Result<Vec<NewI
 fn import_json(input_path: &Path) -> Result<Vec<NewItem>> {
     let content = fs::read_to_string(input_path)?;
     let exported_items: Vec<ExportedItem> =
-        serde_json::from_str(&content).map_err(|e| anyhow!("JSON parse error: {e}"))?;
+        serde_json::from_str(&content).map_err(|e| eyre!("JSON parse error: {e}"))?;
 
     let mut items = Vec::new();
     for exported in exported_items {
@@ -263,7 +262,7 @@ fn import_csv(input_path: &Path) -> Result<Vec<NewItem>> {
 
         let fields = parse_csv_line(&buf);
         if fields.len() < 3 {
-            return Err(anyhow!(
+            return Err(eyre!(
                 "Invalid CSV format at line {}: expected at least 3 fields",
                 current_record_start_line
             ));
@@ -281,14 +280,14 @@ fn import_csv(input_path: &Path) -> Result<Vec<NewItem>> {
     // If leftover buffer remains, ensure it's a complete record and parse it
     if !buf.is_empty() {
         if !record_complete(&buf) {
-            return Err(anyhow!(
+            return Err(eyre!(
                 "Invalid CSV format at line {}: unterminated quoted field",
                 current_record_start_line
             ));
         }
         let fields = parse_csv_line(&buf);
         if fields.len() < 3 {
-            return Err(anyhow!(
+            return Err(eyre!(
                 "Invalid CSV format at line {}: expected at least 3 fields",
                 current_record_start_line
             ));
@@ -305,7 +304,7 @@ fn import_csv(input_path: &Path) -> Result<Vec<NewItem>> {
 
 fn import_chamber_backup(input_path: &Path) -> Result<Vec<NewItem>> {
     let content = fs::read_to_string(input_path)?;
-    let backup: ChamberBackup = serde_json::from_str(&content).map_err(|e| anyhow!("JSON parse error: {e}"))?;
+    let backup: ChamberBackup = serde_json::from_str(&content).map_err(|e| eyre!("JSON parse error: {e}"))?;
 
     let mut items = Vec::new();
     for exported in backup.items {

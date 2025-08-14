@@ -1,4 +1,5 @@
-use anyhow::{Result, anyhow};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -137,7 +138,7 @@ impl VaultRegistry {
     }
 
     fn default_registry_path() -> Result<PathBuf> {
-        let base = dirs::config_dir().ok_or_else(|| anyhow!("No config directory found"))?;
+        let base = dirs::config_dir().ok_or_else(|| eyre!("No config directory found"))?;
         Ok(base.join("chamber").join("registry.json"))
     }
 
@@ -163,7 +164,7 @@ impl VaultRegistry {
     }
 
     fn default_vault_path(vault_id: &str) -> Result<PathBuf> {
-        let base = dirs::config_dir().ok_or_else(|| anyhow!("No config directory found"))?;
+        let base = dirs::config_dir().ok_or_else(|| eyre!("No config directory found"))?;
         let chamber_dir = base.join("chamber");
         std::fs::create_dir_all(&chamber_dir)?;
 
@@ -220,7 +221,7 @@ impl VaultRegistry {
 
         // Check if vault ID already exists
         if self.vaults.contains_key(&vault_id) {
-            return Err(anyhow!("Vault with ID '{}' already exists", vault_id));
+            return Err(eyre!("Vault with ID '{}' already exists", vault_id));
         }
 
         let vault_path = if let Some(custom_path) = path {
@@ -302,7 +303,7 @@ impl VaultRegistry {
     ///   - The `save` operation fails to persist in the updated state.
     pub fn set_active_vault(&mut self, vault_id: &str) -> Result<()> {
         if !self.vaults.contains_key(vault_id) {
-            return Err(anyhow!("Vault with ID '{}' not found", vault_id));
+            return Err(eyre!("Vault with ID '{}' not found", vault_id));
         }
 
         // Update previous active vault
@@ -365,7 +366,7 @@ impl VaultRegistry {
         let vault = self
             .vaults
             .get_mut(vault_id)
-            .ok_or_else(|| anyhow!("Vault with ID '{}' not found", vault_id))?;
+            .ok_or_else(|| eyre!("Vault with ID '{}' not found", vault_id))?;
 
         if let Some(new_name) = name {
             vault.name = new_name;
@@ -420,7 +421,7 @@ impl VaultRegistry {
         let vault = self
             .vaults
             .get(vault_id)
-            .ok_or_else(|| anyhow!("Vault with ID '{}' not found", vault_id))?;
+            .ok_or_else(|| eyre!("Vault with ID '{}' not found", vault_id))?;
 
         // Delete physical file if requested
         if delete_file && vault.path.exists() {
@@ -492,7 +493,7 @@ impl VaultRegistry {
         copy_file: bool,
     ) -> Result<String> {
         if !vault_file.exists() {
-            return Err(anyhow!("Vault file does not exist: {}", vault_file.display()));
+            return Err(eyre!("Vault file does not exist: {}", vault_file.display()));
         }
 
         let vault_id = Self::generate_vault_id();
@@ -528,7 +529,7 @@ impl VaultRegistry {
 }
 
 fn default_db_path() -> Result<PathBuf> {
-    let base = dirs::config_dir().ok_or_else(|| anyhow!("No config dir"))?;
+    let base = dirs::config_dir().ok_or_else(|| eyre!("No config dir"))?;
     let dir = base.join("chamber");
     std::fs::create_dir_all(&dir)?;
     Ok(dir.join("vault.sqlite3"))

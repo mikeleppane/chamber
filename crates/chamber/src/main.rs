@@ -1,10 +1,10 @@
-use anyhow::Result;
 use chamber_backup::BackgroundService;
 use chamber_cli::Cli;
 use chamber_cli::handle_command;
 use chamber_ui::{App, run_app};
 use chamber_vault::Vault;
 use clap::Parser;
+use color_eyre::Result;
 #[cfg(not(windows))]
 use jemallocator::Jemalloc;
 #[cfg(windows)]
@@ -20,6 +20,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 fn main() -> Result<()> {
     // If CLI arguments are provided, run CLI mode; otherwise, launch TUI.
+    color_eyre::install()?;
     let cli = Cli::parse();
     if let Some(cmd) = cli.command {
         match handle_command(cmd) {

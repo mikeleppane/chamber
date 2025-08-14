@@ -15,7 +15,9 @@ pub use db::{Db, ItemRow};
 pub use crate::config::BackupConfig;
 pub use crate::manager::VaultManager;
 pub use crate::registry::{VaultCategory, VaultInfo, VaultRegistry};
-use anyhow::{Result, anyhow};
+use color_eyre::Result;
+use color_eyre::eyre::Error;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -32,7 +34,7 @@ pub enum ItemKind {
 }
 
 impl FromStr for ItemKind {
-    type Err = anyhow::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let result = match s.to_lowercase().as_str() {
@@ -43,7 +45,7 @@ impl FromStr for ItemKind {
             "sshkey" | "ssh" => ItemKind::SshKey,
             "certificate" | "cert" => ItemKind::Certificate,
             "database" | "db" => ItemKind::Database,
-            _ => return Err(anyhow!("Invalid item type: '{}'", s)),
+            _ => return Err(eyre!("Invalid item type: '{}'", s)),
         };
         Ok(result)
     }
@@ -338,8 +340,8 @@ impl Vault {
     /// # Errors
     ///
     /// This function can return the following errors wrapped in a `Result`:
-    /// * `anyhow!("Vault not initialized")` - If the vault metadata is not present.
-    /// * `anyhow!("Invalid master key")` - If the provided master key is invalid or fails verification.
+    /// * `eyre!("Vault not initialized")` - If the vault metadata is not present.
+    /// * `eyre!("Invalid master key")` - If the provided master key is invalid or fails verification.
     /// * Other errors arising from key derivation or vault key unwrapping.
     ///
     /// # Implementation Details
@@ -352,10 +354,10 @@ impl Vault {
     ///    vault key (`vk`) within the instance's `key` field.
     ///
     pub fn unlock(&mut self, master: &str) -> Result<()> {
-        let (kdf, wrapped, verifier) = self.db.read_meta()?.ok_or_else(|| anyhow!("Vault not initialized"))?;
+        let (kdf, wrapped, verifier) = self.db.read_meta()?.ok_or_else(|| eyre!("Vault not initialized"))?;
         let master_derived = derive_key(master, &kdf)?;
         // Verify first
-        unwrap_vault_key(&master_derived, &wrapped, Some(&verifier)).map_err(|_| anyhow!("Invalid master key"))?;
+        unwrap_vault_key(&master_derived, &wrapped, Some(&verifier)).map_err(|_| eyre!("Invalid master key"))?;
         let vk = unwrap_vault_key(&master_derived, &wrapped, None)?;
         self.key = Some(vk);
         Ok(())
@@ -398,7 +400,7 @@ impl Vault {
     /// - Ensure `self.key` is properly initialized before calling this method.
     /// - The database schema must provide the required fields for each item: `id`, `name`, `kind`, `ciphertext`, `nonce`, and timestamps.
     pub fn list_items(&self) -> Result<Vec<Item>> {
-        let vk = self.key.as_ref().ok_or_else(|| anyhow!("Locked"))?;
+        let vk = self.key.as_ref().ok_or_else(|| eyre!("Locked"))?;
         let rows = self.db.list_items()?;
         let mut out = Vec::with_capacity(rows.len());
         for r in rows {
@@ -459,7 +461,7 @@ impl Vault {
     /// - If encryption fails for any reason.
     /// - If the database insertion fails.
     pub fn create_item(&mut self, item: &NewItem) -> Result<()> {
-        let vk = self.key.as_ref().ok_or_else(|| anyhow!("Locked"))?;
+        let vk = self.key.as_ref().ok_or_else(|| eyre!("Locked"))?;
         let nonce_cipher = aead_encrypt(
             vk,
             item.value.as_bytes(),
@@ -533,12 +535,12 @@ impl Vault {
     /// to the vault.
     pub fn change_master_key(&mut self, current_master: &str, new_master: &str) -> Result<()> {
         let (kdf_old, wrapped_old, verifier_old) =
-            self.db.read_meta()?.ok_or_else(|| anyhow!("Vault not initialized"))?;
+            self.db.read_meta()?.ok_or_else(|| eyre!("Vault not initialized"))?;
 
         // Verify the current master and unwrap the existing vault key
         let current_derived = derive_key(current_master, &kdf_old)?;
         let _ = unwrap_vault_key(&current_derived, &wrapped_old, Some(&verifier_old))
-            .map_err(|_| anyhow!("Invalid current master key"))?;
+            .map_err(|_| eyre!("Invalid current master key"))?;
         let vault_key = unwrap_vault_key(&current_derived, &wrapped_old, None)?;
 
         // Generate fresh KDF params and wrap with a new master-derived key
@@ -575,18 +577,18 @@ impl Vault {
     /// 5. Updates the item in the database with the newly encrypted value and its corresponding nonce.
     ///
     /// # Errors
-    /// - If the encryption key is missing, an `anyhow!("Locked")` error is returned.
-    /// - If the item is not found, an `anyhow!("Item not found")` error is returned.
+    /// - If the encryption key is missing, an `eyre!("Locked")` error is returned.
+    /// - If the item is not found, an `eyre!("Item not found")` error is returned.
     /// - Any failures during encryption or database operations propagate as errors.
     pub fn update_item(&mut self, id: i64, new_value: &str) -> Result<()> {
-        let vk = self.key.as_ref().ok_or_else(|| anyhow!("Locked"))?;
+        let vk = self.key.as_ref().ok_or_else(|| eyre!("Locked"))?;
 
         // Get the item to preserve name and kind for AD
         let items = self.list_items()?;
         let item = items
             .iter()
             .find(|i| i.id == id)
-            .ok_or_else(|| anyhow!("Item not found"))?;
+            .ok_or_else(|| eyre!("Item not found"))?;
 
         // Encrypt new value with same AD (name and kind)
         let nonce_cipher = aead_encrypt(
@@ -625,7 +627,7 @@ impl Vault {
         let registry = VaultRegistry::load()?;
         let vault_info = registry
             .get_vault(vault_id)
-            .ok_or_else(|| anyhow!("Vault '{}' not found", vault_id))?;
+            .ok_or_else(|| eyre!("Vault '{}' not found", vault_id))?;
 
         Self::open_or_create(Some(&vault_info.path))
     }
@@ -724,7 +726,7 @@ impl Vault {
         let registry = VaultRegistry::load()?;
         let active_vault = registry
             .get_active_vault()
-            .ok_or_else(|| anyhow!("No active vault found"))?;
+            .ok_or_else(|| eyre!("No active vault found"))?;
 
         Self::open_or_create(Some(&active_vault.path))
     }
@@ -745,7 +747,7 @@ impl Clone for Vault {
 }
 
 fn default_db_path() -> Result<PathBuf> {
-    let base = dirs::config_dir().ok_or_else(|| anyhow::anyhow!("No config dir"))?;
+    let base = dirs::config_dir().ok_or_else(|| eyre!("No config dir"))?;
     let dir = base.join("chamber");
     std::fs::create_dir_all(&dir)?;
     Ok(dir.join("vault.sqlite3"))

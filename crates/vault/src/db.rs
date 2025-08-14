@@ -1,5 +1,6 @@
 use crate::{KdfParams, WrappedVaultKey};
-use anyhow::{Result, anyhow};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use rusqlite::{Connection, OptionalExtension, params};
 use time::OffsetDateTime;
 
@@ -218,7 +219,7 @@ impl Db {
                 if let rusqlite::Error::SqliteFailure(ref err, _) = e {
                     // Error code 2067 = SQLITE_CONSTRAINT_UNIQUE
                     if err.extended_code == 2067 || err.code == rusqlite::ErrorCode::ConstraintViolation {
-                        return Err(anyhow!("An item named '{}' already exists", name));
+                        return Err(eyre!("An item named '{}' already exists", name));
                     }
                 }
                 Err(e.into())
@@ -400,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn test_open_and_migrate_and_is_meta_empty() -> anyhow::Result<()> {
+    fn test_open_and_migrate_and_is_meta_empty() -> Result<()> {
         let path = tmp_path("open_migrate");
         let db = Db::open(&path)?;
         assert!(db.is_meta_empty()?);
@@ -415,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_meta_none_when_empty() -> anyhow::Result<()> {
+    fn test_read_meta_none_when_empty() -> Result<()> {
         let path = tmp_path("meta_none");
         let db = Db::open(&path)?;
         assert!(db.is_meta_empty()?);
@@ -428,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_and_read_meta_roundtrip() -> anyhow::Result<()> {
+    fn test_write_and_read_meta_roundtrip() -> Result<()> {
         let path = tmp_path("meta_roundtrip");
         let db = Db::open(&path)?;
 
@@ -468,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_and_list_items_and_ordering() -> anyhow::Result<()> {
+    fn test_insert_and_list_items_and_ordering() -> Result<()> {
         let path = tmp_path("items_basic");
         let db = Db::open(&path)?;
 
@@ -495,7 +496,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unique_name_constraint() -> anyhow::Result<()> {
+    fn test_unique_name_constraint() -> Result<()> {
         let path = tmp_path("unique_name");
         let db = Db::open(&path)?;
 
@@ -509,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update_item_changes_ciphertext_and_updated_at() -> anyhow::Result<()> {
+    fn test_update_item_changes_ciphertext_and_updated_at() -> Result<()> {
         let path = tmp_path("update_item");
         let db = Db::open(&path)?;
 
@@ -536,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delete_item_removes_row() -> anyhow::Result<()> {
+    fn test_delete_item_removes_row() -> Result<()> {
         let path = tmp_path("delete_item");
         let db = Db::open(&path)?;
 

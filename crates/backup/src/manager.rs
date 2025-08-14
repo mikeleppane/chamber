@@ -1,6 +1,7 @@
-use anyhow::{Result, anyhow};
 use chamber_import_export::{ExportFormat, export_items};
 use chamber_vault::{BackupConfig, Item, Vault};
+use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use std::fs;
 use std::path::{Path, PathBuf};
 use time::OffsetDateTime;
@@ -131,7 +132,7 @@ impl<V: VaultOperations> BackupManager<V> {
             "json" => ExportFormat::Json,
             "csv" => ExportFormat::Csv,
             "backup" => ExportFormat::ChamberBackup,
-            _ => return Err(anyhow!("Invalid backup format: {}", self.config.format)),
+            _ => return Err(eyre!("Invalid backup format: {}", self.config.format)),
         };
 
         // Perform the export
@@ -199,7 +200,7 @@ impl<V: VaultOperations> BackupManager<V> {
         // Basic verification - ensure file exists and is not empty
         let metadata = fs::metadata(path)?;
         if metadata.len() == 0 {
-            return Err(anyhow!("Backup file is empty: {}", path.display()));
+            return Err(eyre!("Backup file is empty: {}", path.display()));
         }
 
         // For compressed files, try to decompress a small portion
@@ -240,10 +241,10 @@ impl<V: VaultOperations> BackupManager<V> {
             "csv" => {
                 // Basic CSV validation - check header exists
                 if !content.starts_with("name,kind,value") {
-                    return Err(anyhow!("Invalid CSV backup format"));
+                    return Err(eyre!("Invalid CSV backup format"));
                 }
             }
-            _ => return Err(anyhow!("Unknown backup format for verification")),
+            _ => return Err(eyre!("Unknown backup format for verification")),
         }
 
         Ok(())
@@ -389,8 +390,8 @@ mod tests {
     #![allow(clippy::unwrap_used)]
     #![allow(clippy::panic)]
     use super::*;
-    use anyhow::Result;
     use chamber_vault::{BackupConfig, Item, ItemKind};
+    use color_eyre::Result;
     use std::fs;
     use tempfile::TempDir;
     use time::OffsetDateTime;
@@ -420,7 +421,7 @@ mod tests {
     impl VaultOperations for MockVault {
         fn list_items(&self) -> Result<Vec<Item>> {
             if self.should_fail {
-                return Err(anyhow::anyhow!("Mock vault error"));
+                return Err(eyre!("Mock vault error"));
             }
             Ok(self.items.clone())
         }
