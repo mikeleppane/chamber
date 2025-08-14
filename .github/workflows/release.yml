@@ -136,6 +136,16 @@ jobs:
             cp "./artifacts/chamber-macos-amd64/chamber-macos-amd64" ./release-assets/
           fi
           
+          # Add the new MUSL static binary
+          if [ -f "./artifacts/chamber-linux-amd64-static/chamber-linux-amd64-static" ]; then
+            cp "./artifacts/chamber-linux-amd64-static/chamber-linux-amd64-static" ./release-assets/
+          fi
+          
+          # Add the new ARM64 binary
+          if [ -f "./artifacts/chamber-linux-arm64/chamber-linux-arm64" ]; then
+            cp "./artifacts/chamber-linux-arm64/chamber-linux-arm64" ./release-assets/
+          fi
+          
           echo "Contents of ./release-assets:"
           ls -la ./release-assets/
       
