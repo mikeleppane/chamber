@@ -59,6 +59,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y musl-tools
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+            # Create symlinks for musl cross-compiler
+            sudo ln -sf /usr/bin/aarch64-linux-gnu-gcc /usr/local/bin/aarch64-linux-musl-gcc
+            sudo ln -sf /usr/bin/aarch64-linux-gnu-ar /usr/local/bin/aarch64-linux-musl-ar
+            sudo ln -sf /usr/bin/aarch64-linux-gnu-strip /usr/local/bin/aarch64-linux-musl-strip
+          fi
+
 
       - name: Install cross-compilation tools
         if: matrix.os == 'ubuntu-latest' && contains(matrix.target, 'aarch64')
