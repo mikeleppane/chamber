@@ -91,6 +91,29 @@ pub enum StatusType {
     Error,
 }
 
+#[derive(Debug, Clone)]
+pub struct ItemCounts {
+    pub total: usize,
+    pub passwords: usize,
+    pub env_vars: usize,
+    pub notes: usize,
+    pub api_keys: usize,
+    pub ssh_keys: usize,
+    pub certificates: usize,
+    pub databases: usize,
+    pub credit_cards: usize,
+    pub secure_notes: usize,
+    pub identities: usize,
+    pub servers: usize,
+    pub wifi_passwords: usize,
+    pub licenses: usize,
+    pub bank_accounts: usize,
+    pub documents: usize,
+    pub recovery_codes: usize,
+    pub oauth_tokens: usize,
+}
+
+
 pub struct App {
     pub vault: Vault,
     pub vault_manager: VaultManager,
@@ -425,28 +448,7 @@ impl App {
         self.filtered_items.get(self.selected)
     }
 
-    pub fn get_item_counts(
-        &self,
-    ) -> (
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-        usize,
-    ) {
+    pub fn get_item_counts(&self) -> ItemCounts {
         let passwords = self
             .items
             .iter()
@@ -511,27 +513,28 @@ impl App {
             .count();
         let oauth_tokens = self.items.iter().filter(|i| matches!(i.kind, ItemKind::OAuth)).count();
 
-        (
-            self.items.len(), // total
-            passwords,        // 1
-            env_vars,         // 2
-            notes,            // 3
-            api_keys,         // 4
-            ssh_keys,         // 5
-            certificates,     // 6
-            databases,        // 7
-            credit_cards,     // 8
-            secure_notes,     // 9
-            identities,       // 10
-            servers,          // 11
-            wifi_passwords,   // 12
-            licenses,         // 13
-            bank_accounts,    // 14
-            documents,        // 15
-            recovery_codes,   // 16
-            oauth_tokens,     // 17
-        )
+        ItemCounts {
+            total: self.items.len(),
+            passwords,
+            env_vars,
+            notes,
+            api_keys,
+            ssh_keys,
+            certificates,
+            databases,
+            credit_cards,
+            secure_notes,
+            identities,
+            servers,
+            wifi_passwords,
+            licenses,
+            bank_accounts,
+            documents,
+            recovery_codes,
+            oauth_tokens,
+        }
     }
+
 
     /// Adds a new item to the vault with the specified details and updates the UI.
     ///
