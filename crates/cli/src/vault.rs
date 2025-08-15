@@ -14,7 +14,7 @@ pub enum VaultCommand {
         /// Custom file path for vault storage (optional)
         #[arg(long)]
         path: Option<PathBuf>,
-        /// Vault category for organization: personal, work, team, project, testing, archive
+        /// Vault category for organization: personal, work, team, project, testing, archive, or custom
         #[arg(long, default_value = "personal")]
         category: String,
         /// Optional description explaining the vault's purpose
@@ -204,18 +204,38 @@ pub fn handle_vault_command(manager: &mut VaultManager, cmd: crate::VaultCommand
         crate::VaultCommand::Delete { vault, delete_file } => {
             let vault_id = find_vault_id(manager, &vault)?;
 
+            // Check if this is the active vault
+            let is_active_vault = manager.registry.active_vault_id.as_ref() == Some(&vault_id);
+            let vault_count = manager.registry.vaults.len();
+
+            // Prevent deletion of active vault unless it's the only one
+            if is_active_vault && vault_count > 1 {
+                println!("❌ Cannot delete the active vault while other vaults exist.");
+                println!("💡 Switch to another vault first using: chamber registry switch <vault-name>");
+                println!("💡 Or list all vaults with: chamber registry list");
+                return Ok(());
+            }
+
+            // Special message for deleting the last/only vault
+            if vault_count == 1 {
+                println!("⚠️  You are deleting the only remaining vault!");
+            }
+
             print!("Are you sure you want to delete vault '{vault_id}'? ");
             if delete_file {
                 print!("This will also delete the vault file! ");
             }
             print!("(y/N): ");
 
+            // Flush stdout to ensure the prompt is displayed immediately
+            std::io::Write::flush(&mut std::io::stdout())?;
+
             let mut input = String::new();
             std::io::stdin().read_line(&mut input)?;
 
             if input.trim().to_lowercase() == "y" {
                 manager.delete_vault(&vault_id, delete_file)?;
-                println!("Deleted vault: {vault_id}");
+                println!("✅ Deleted vault: {vault_id}");
             } else {
                 println!("Cancelled");
             }

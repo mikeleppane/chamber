@@ -419,12 +419,58 @@ impl VaultSelector {
         let inner_area = block.inner(popup_area);
         frame.render_widget(block, popup_area);
 
-        let content = match self.input_field {
-            InputField::Category => {
-                "Available categories: personal, work, team, project, testing, archive\nCurrent: ".to_string()
-                    + &self.input_buffer
+        let (content, cursor_line, cursor_col) = if self.input_field == InputField::Category {
+            let instruction = "Choose some default available categories (personal, work, team, project, testing, archive) \
+            or choose your own\nEnter category: ";
+            let content = instruction.to_string() + &self.input_buffer;
+
+            // Calculate cursor position accounting for text wrapping
+            let available_width = inner_area.width as usize;
+            let mut current_line = 0;
+            let mut current_col = 0;
+
+            // Process the instruction text first
+            for ch in instruction.chars() {
+                if ch == '\n' {
+                    current_line += 1;
+                    current_col = 0;
+                } else if current_col >= available_width {
+                    // Line wrapped
+                    current_line += 1;
+                    current_col = 1; // This character starts the new line
+                } else {
+                    current_col += 1;
+                }
             }
-            _ => self.input_buffer.clone(),
+
+            // Now add the input buffer position
+            for _ in self.input_buffer.chars() {
+                if current_col >= available_width {
+                    // Line wrapped
+                    current_line += 1;
+                    current_col = 1; // This character starts the new line
+                } else {
+                    current_col += 1;
+                }
+            }
+
+            (content, current_line, current_col)
+        } else {
+            // For single-line fields, still account for wrapping
+            let available_width = inner_area.width as usize;
+            let mut current_line = 0;
+            let mut current_col = 0;
+
+            for _ in self.input_buffer.chars() {
+                if current_col >= available_width {
+                    current_line += 1;
+                    current_col = 1;
+                } else {
+                    current_col += 1;
+                }
+            }
+
+            (self.input_buffer.clone(), current_line, current_col)
         };
 
         let input = Paragraph::new(content)
@@ -433,11 +479,12 @@ impl VaultSelector {
 
         frame.render_widget(input, inner_area);
 
-        // Show cursor
+        // Show cursor at the correct position
         #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_sign_loss)]
         let cursor_area = Rect {
-            x: inner_area.x + self.input_buffer.len() as u16,
-            y: inner_area.y,
+            x: inner_area.x + cursor_col as u16,
+            y: inner_area.y + cursor_line as u16,
             width: 1,
             height: 1,
         };

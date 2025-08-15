@@ -581,7 +581,7 @@ impl App {
     pub fn add_item(&mut self) -> Result<()> {
         let kind = ItemKind::all()[self.add_kind_idx.min(ItemKind::all().len() - 1)];
 
-        // Get the value from textarea instead of add_value
+        // Get the value from the textarea instead of add_value
         let value = self.add_value_textarea.lines().join("\n");
 
         let new_item = NewItem {
@@ -1287,6 +1287,18 @@ impl App {
     }
 
     fn delete_vault(&mut self, vault_id: &str, delete_file: bool) {
+        let is_active_vault = self.vault_manager.registry.active_vault_id.as_ref() == Some(&vault_id.to_string());
+        let vault_count = self.vault_manager.registry.vaults.len();
+
+        // Prevent deletion of an active vault unless it's the only one
+        if is_active_vault && vault_count > 1 {
+            self.set_status(
+                "Cannot delete active vault. Switch to another vault first.".to_string(),
+                StatusType::Error,
+            );
+            return;
+        }
+
         match self.vault_manager.delete_vault(vault_id, delete_file) {
             Ok(()) => {
                 self.vault_selector.load_vaults(&self.vault_manager);
