@@ -1,6 +1,6 @@
 [package]
 name = "chamber-cli"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 description = "CLI interface for Chamber secrets manager"
 
@@ -16,5 +16,7 @@ time = {workspace = true}
 chrono = {workspace = true}
 regex = {workspace = true}
 arboard = {workspace = true}
+serde_json = {workspace = true}
+dirs = {workspace = true}
 [dev-dependencies]
 time = "0.3.41"

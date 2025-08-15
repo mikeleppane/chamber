@@ -311,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-cli"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "arboard",
  "chamber-backup",
@@ -321,8 +321,10 @@ dependencies = [
  "chrono",
  "clap",
  "color-eyre",
+ "dirs",
  "regex",
  "rpassword",
+ "serde_json",
  "time",
 ]
 
@@ -350,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-ui"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "arboard",
  "chamber-import-export",
@@ -365,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-vault"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "argon2",
  "chacha20poly1305",

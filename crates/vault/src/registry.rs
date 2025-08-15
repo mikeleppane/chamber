@@ -428,10 +428,21 @@ impl VaultRegistry {
             fs::remove_file(&vault.path)?;
         }
 
-        // If this was the active vault, set another one as active
+        // If this was the active vault, handle the active vault switching
         if self.active_vault_id.as_ref() == Some(&String::from(vault_id)) {
-            let next_vault_id = self.vaults.keys().find(|&id| id != vault_id).unwrap().clone();
-            self.set_active_vault(&next_vault_id)?;
+            if self.vaults.len() > 1 {
+                // There are other vaults, switch to one of them
+                let next_vault_id = self
+                    .vaults
+                    .keys()
+                    .find(|&id| id != vault_id)
+                    .ok_or_else(|| eyre!("No alternative vault found"))?
+                    .clone();
+                self.set_active_vault(&next_vault_id)?;
+            } else {
+                // This is the only vault, just clear the active vault
+                self.active_vault_id = None;
+            }
         }
 
         self.vaults.remove(vault_id);

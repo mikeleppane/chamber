@@ -91,6 +91,28 @@ pub enum StatusType {
     Error,
 }
 
+#[derive(Debug, Clone)]
+pub struct ItemCounts {
+    pub total: usize,
+    pub passwords: usize,
+    pub env_vars: usize,
+    pub notes: usize,
+    pub api_keys: usize,
+    pub ssh_keys: usize,
+    pub certificates: usize,
+    pub databases: usize,
+    pub credit_cards: usize,
+    pub secure_notes: usize,
+    pub identities: usize,
+    pub servers: usize,
+    pub wifi_passwords: usize,
+    pub licenses: usize,
+    pub bank_accounts: usize,
+    pub documents: usize,
+    pub recovery_codes: usize,
+    pub oauth_tokens: usize,
+}
+
 pub struct App {
     pub vault: Vault,
     pub vault_manager: VaultManager,
@@ -425,7 +447,7 @@ impl App {
         self.filtered_items.get(self.selected)
     }
 
-    pub fn get_item_counts(&self) -> (usize, usize, usize, usize, usize, usize, usize, usize) {
+    pub fn get_item_counts(&self) -> ItemCounts {
         let passwords = self
             .items
             .iter()
@@ -446,8 +468,52 @@ impl App {
             .filter(|i| matches!(i.kind, ItemKind::Database))
             .count();
 
-        (
-            self.items.len(),
+        // New categories
+        let credit_cards = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::CreditCard))
+            .count();
+        let secure_notes = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::SecureNote))
+            .count();
+        let identities = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Identity))
+            .count();
+        let servers = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Server)).count();
+        let wifi_passwords = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::WifiPassword))
+            .count();
+        let licenses = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::License))
+            .count();
+        let bank_accounts = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::BankAccount))
+            .count();
+        let documents = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Document))
+            .count();
+        let recovery_codes = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Recovery))
+            .count();
+        let oauth_tokens = self.items.iter().filter(|i| matches!(i.kind, ItemKind::OAuth)).count();
+
+        ItemCounts {
+            total: self.items.len(),
             passwords,
             env_vars,
             notes,
@@ -455,7 +521,17 @@ impl App {
             ssh_keys,
             certificates,
             databases,
-        )
+            credit_cards,
+            secure_notes,
+            identities,
+            servers,
+            wifi_passwords,
+            licenses,
+            bank_accounts,
+            documents,
+            recovery_codes,
+            oauth_tokens,
+        }
     }
 
     /// Adds a new item to the vault with the specified details and updates the UI.
@@ -504,17 +580,9 @@ impl App {
     /// - Resets both single-line (`add_value`) and multi-line (`add_value_textarea`) value fields upon successful addition.
     /// - Automatically trims leading and trailing whitespace from the item name.
     pub fn add_item(&mut self) -> Result<()> {
-        let kind = match self.add_kind_idx {
-            0 => ItemKind::Password,
-            1 => ItemKind::EnvVar,
-            3 => ItemKind::ApiKey,
-            4 => ItemKind::SshKey,
-            5 => ItemKind::Certificate,
-            6 => ItemKind::Database,
-            _ => ItemKind::Note,
-        };
+        let kind = ItemKind::all()[self.add_kind_idx.min(ItemKind::all().len() - 1)];
 
-        // Get the value from textarea instead of add_value
+        // Get the value from the textarea instead of add_value
         let value = self.add_value_textarea.lines().join("\n");
 
         let new_item = NewItem {
@@ -1220,6 +1288,18 @@ impl App {
     }
 
     fn delete_vault(&mut self, vault_id: &str, delete_file: bool) {
+        let is_active_vault = self.vault_manager.registry.active_vault_id.as_ref() == Some(&vault_id.to_string());
+        let vault_count = self.vault_manager.registry.vaults.len();
+
+        // Prevent deletion of an active vault unless it's the only one
+        if is_active_vault && vault_count > 1 {
+            self.set_status(
+                "Cannot delete active vault. Switch to another vault first.".to_string(),
+                StatusType::Error,
+            );
+            return;
+        }
+
         match self.vault_manager.delete_vault(vault_id, delete_file) {
             Ok(()) => {
                 self.vault_selector.load_vaults(&self.vault_manager);
