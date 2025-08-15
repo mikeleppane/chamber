@@ -1,4 +1,7 @@
-use crate::app::{AddItemField, App, ChangeKeyField, ImportExportField, ImportExportMode, ItemCounts, PasswordGenField, Screen, StatusType, UnlockField, ViewMode};
+use crate::app::{
+    AddItemField, App, ChangeKeyField, ImportExportField, ImportExportMode, ItemCounts, PasswordGenField, Screen,
+    StatusType, UnlockField, ViewMode,
+};
 use chamber_vault::ItemKind;
 use color_eyre::Result;
 use ratatui::crossterm::event;
@@ -1023,7 +1026,8 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
 
 #[allow(clippy::too_many_lines)]
 fn draw_categories_section(f: &mut Frame, app: &App, area: Rect) {
-    let ItemCounts {total:_ ,
+    let ItemCounts {
+        total: _,
         passwords,
         env_vars,
         notes,
@@ -1040,7 +1044,7 @@ fn draw_categories_section(f: &mut Frame, app: &App, area: Rect) {
         bank_accounts,
         documents,
         recovery_codes,
-        oauth_tokens
+        oauth_tokens,
     } = app.get_item_counts();
 
     let categories_content = vec![

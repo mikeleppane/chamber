@@ -113,7 +113,6 @@ pub struct ItemCounts {
     pub oauth_tokens: usize,
 }
 
-
 pub struct App {
     pub vault: Vault,
     pub vault_manager: VaultManager,
@@ -534,7 +533,6 @@ impl App {
             oauth_tokens,
         }
     }
-
 
     /// Adds a new item to the vault with the specified details and updates the UI.
     ///
