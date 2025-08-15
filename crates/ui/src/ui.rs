@@ -73,6 +73,46 @@ const fn c_badge_db() -> Color {
     Color::Rgb(50, 205, 50) // Lime Green
 }
 
+const fn c_badge_creditcard() -> Color {
+    Color::Rgb(255, 215, 0) // Gold for credit cards
+}
+
+const fn c_badge_securenote() -> Color {
+    Color::Rgb(138, 43, 226) // Purple for secure notes
+}
+
+const fn c_badge_identity() -> Color {
+    Color::Rgb(0, 191, 255) // Deep sky blue for identity
+}
+
+const fn c_badge_server() -> Color {
+    Color::Rgb(220, 20, 60) // Crimson for servers
+}
+
+const fn c_badge_wifi() -> Color {
+    Color::Rgb(34, 139, 34) // Forest green for WiFi
+}
+
+const fn c_badge_license() -> Color {
+    Color::Rgb(255, 140, 0) // Dark orange for licenses
+}
+
+const fn c_badge_bankaccount() -> Color {
+    Color::Rgb(0, 100, 0) // Dark green for bank accounts
+}
+
+const fn c_badge_document() -> Color {
+    Color::Rgb(105, 105, 105) // Dim gray for documents
+}
+
+const fn c_badge_recovery() -> Color {
+    Color::Rgb(255, 20, 147) // Deep pink for recovery codes
+}
+
+const fn c_badge_oauth() -> Color {
+    Color::Rgb(30, 144, 255) // Dodger blue for OAuth
+}
+
 fn truncate_text(text: &str, max_width: usize) -> String {
     if text.chars().count() <= max_width {
         text.to_string()
@@ -380,7 +420,7 @@ fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
                 };
             }
             KeyCode::Left | KeyCode::Right if matches!(app.add_focus, AddItemField::Kind) => {
-                let total_kinds = 7;
+                let total_kinds = 17;
                 if key.code == KeyCode::Right {
                     app.add_kind_idx = (app.add_kind_idx + 1) % total_kinds;
                 } else {
@@ -778,14 +818,34 @@ fn draw_unlock(f: &mut Frame, app: &App, body: Rect) {
 
 #[allow(clippy::too_many_lines)]
 fn draw_main(f: &mut Frame, app: &App, body: Rect) {
-    let chunks = Layout::default()
+    // Create three-column layout: Items | Categories | Help
+    let main_layout = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .constraints([
+            Constraint::Percentage(60), // Items section
+            Constraint::Percentage(20), // Categories section
+            Constraint::Percentage(20), // Help section
+        ])
         .split(centered_rect(96, 90, body));
 
+    let items_area = main_layout[0];
+    let categories_area = main_layout[1];
+    let help_area = main_layout[2];
+
+    // === ITEMS SECTION ===
+    draw_items_section(f, app, items_area);
+
+    // === CATEGORIES SECTION ===
+    draw_categories_section(f, app, categories_area);
+
+    // === HELP SECTION ===
+    draw_help_section(f, help_area);
+}
+
+#[allow(clippy::too_many_lines)]
+fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
     // Calculate viewport dimensions
-    let list_area = chunks[0];
-    let viewport_height = list_area.height.saturating_sub(2) as usize; // account for borders
+    let viewport_height = area.height.saturating_sub(2) as usize; // account for borders
     let content_length = app.filtered_items.len();
 
     // Calculate what items to show based on scroll offset
@@ -812,7 +872,7 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
                 list_items.push(ListItem::new(Line::from("")));
             }
 
-            // Category header - only show if this category has visible items
+            // Category header
             let (category_name, category_icon, category_color) = match item.kind {
                 ItemKind::Password => (" PASSWORDS", "🔐", c_badge_pwd()),
                 ItemKind::EnvVar => (" ENVIRONMENT VARIABLES", "🌍", c_badge_env()),
@@ -821,6 +881,16 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
                 ItemKind::SshKey => (" SSH KEYS", "🔒", c_badge_ssh()),
                 ItemKind::Certificate => (" CERTIFICATES", "📜", c_badge_cert()),
                 ItemKind::Database => (" DATABASES", "🗄️", c_badge_db()),
+                ItemKind::CreditCard => (" CREDIT CARDS", "💳", c_badge_creditcard()),
+                ItemKind::SecureNote => (" SECURE NOTES", "🔒", c_badge_securenote()),
+                ItemKind::Identity => (" IDENTITIES", "🆔", c_badge_identity()),
+                ItemKind::Server => (" SERVERS", "🖥️", c_badge_server()),
+                ItemKind::WifiPassword => (" WIFI", "📶", c_badge_wifi()),
+                ItemKind::License => (" LICENSES", "📄", c_badge_license()),
+                ItemKind::BankAccount => (" BANK ACCOUNTS", "🏦", c_badge_bankaccount()),
+                ItemKind::Document => (" DOCUMENTS", "📋", c_badge_document()),
+                ItemKind::Recovery => (" RECOVERY", "🔄", c_badge_recovery()),
+                ItemKind::OAuth => (" OAUTH TOKENS", "🎫", c_badge_oauth()),
             };
 
             let header_line = Line::from(vec![
@@ -847,6 +917,16 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             ItemKind::SshKey => ("🔒", c_badge_ssh()),
             ItemKind::Certificate => ("📜", c_badge_cert()),
             ItemKind::Database => ("🗄️", c_badge_db()),
+            ItemKind::CreditCard => ("💳", c_badge_creditcard()),
+            ItemKind::SecureNote => ("🔒", c_badge_securenote()),
+            ItemKind::Identity => ("🆔", c_badge_identity()),
+            ItemKind::Server => ("🖥️", c_badge_server()),
+            ItemKind::WifiPassword => ("📶", c_badge_wifi()),
+            ItemKind::License => ("📄", c_badge_license()),
+            ItemKind::BankAccount => ("🏦", c_badge_bankaccount()),
+            ItemKind::Document => ("📋", c_badge_document()),
+            ItemKind::Recovery => ("🔄", c_badge_recovery()),
+            ItemKind::OAuth => ("🎫", c_badge_oauth()),
         };
 
         let created_date = match time::format_description::parse("[year]-[month]-[day]") {
@@ -857,7 +937,7 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             Err(_) => "unknown".to_string(),
         };
 
-        let content_width = chunks[0].width.saturating_sub(8) as usize;
+        let content_width = area.width.saturating_sub(8) as usize;
         let max_name_width = content_width.saturating_sub(20); // Conservative estimate for all fixed elements
 
         let truncated_name = if max_name_width < 1 {
@@ -922,7 +1002,7 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         ));
 
     let list = List::new(list_items).block(list_block.clone());
-    f.render_widget(list, chunks[0]);
+    f.render_widget(list, area);
 
     // Create scrollbar
     let mut scrollbar_state =
@@ -934,7 +1014,7 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         .thumb_style(Style::default().fg(c_accent()).add_modifier(Modifier::BOLD))
         .track_style(Style::default().fg(c_text_dim()));
 
-    let inner_area = list_block.inner(chunks[0]);
+    let inner_area = list_block.inner(area);
     let scrollbar_area = Rect {
         x: inner_area.x + inner_area.width.saturating_sub(1),
         y: inner_area.y,
@@ -942,16 +1022,32 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         height: inner_area.height,
     };
     f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+}
 
-    // Enhanced help panel with category information
-    let (_, passwords, env_vars, notes, api_keys, ssh_keys, certificates, databases) = app.get_item_counts();
+#[allow(clippy::too_many_lines)]
+fn draw_categories_section(f: &mut Frame, app: &App, area: Rect) {
+    let (
+        _,
+        passwords,
+        env_vars,
+        notes,
+        api_keys,
+        ssh_keys,
+        certificates,
+        databases,
+        credit_cards,
+        secure_notes,
+        identities,
+        servers,
+        wifi_passwords,
+        licenses,
+        bank_accounts,
+        documents,
+        recovery_codes,
+        oauth_tokens,
+    ) = app.get_item_counts();
 
-    let help_lines = vec![
-        Line::from(Span::styled(
-            "Categories",
-            Style::default().fg(c_text_dim()).add_modifier(Modifier::BOLD),
-        )),
-        Line::default(),
+    let categories_content = vec![
         Line::from(vec![
             Span::styled("🔐 ", Style::default().fg(c_badge_pwd())),
             Span::styled(format!("Passwords ({passwords})"), Style::default().fg(c_text())),
@@ -980,11 +1076,71 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
             Span::styled("🗄️ ", Style::default().fg(c_badge_db())),
             Span::styled(format!("Databases ({databases})"), Style::default().fg(c_text())),
         ]),
-        Line::default(),
-        Line::from(Span::styled(
-            "Actions",
-            Style::default().fg(c_text_dim()).add_modifier(Modifier::BOLD),
-        )),
+        Line::from(vec![
+            Span::styled("💳 ", Style::default().fg(c_badge_creditcard())),
+            Span::styled(format!("Credit Cards ({credit_cards})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🔒 ", Style::default().fg(c_badge_securenote())),
+            Span::styled(format!("Secure Notes ({secure_notes})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🆔 ", Style::default().fg(c_badge_identity())),
+            Span::styled(format!("Identities ({identities})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🖥️ ", Style::default().fg(c_badge_server())),
+            Span::styled(format!("Servers ({servers})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("📶 ", Style::default().fg(c_badge_wifi())),
+            Span::styled(format!("WiFi ({wifi_passwords})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("📄 ", Style::default().fg(c_badge_license())),
+            Span::styled(format!("Licenses ({licenses})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🏦 ", Style::default().fg(c_badge_bankaccount())),
+            Span::styled(
+                format!("Bank Accounts ({bank_accounts})"),
+                Style::default().fg(c_text()),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("📋 ", Style::default().fg(c_badge_document())),
+            Span::styled(format!("Documents ({documents})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🔄 ", Style::default().fg(c_badge_recovery())),
+            Span::styled(format!("Recovery ({recovery_codes})"), Style::default().fg(c_text())),
+        ]),
+        Line::from(vec![
+            Span::styled("🎫 ", Style::default().fg(c_badge_oauth())),
+            Span::styled(format!("OAuth ({oauth_tokens})"), Style::default().fg(c_text())),
+        ]),
+    ];
+
+    let categories_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(c_border()))
+        .style(Style::default().bg(c_bg_panel()))
+        .title(Span::styled(
+            " Categories ",
+            Style::default().fg(c_accent()).add_modifier(Modifier::BOLD),
+        ));
+
+    let categories_paragraph = Paragraph::new(categories_content)
+        .block(categories_block)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(c_text()));
+
+    f.render_widget(categories_paragraph, area);
+}
+
+fn draw_help_section(f: &mut Frame, area: Rect) {
+    let help_content = vec![
         Line::from(vec![
             Span::styled("a ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
             Span::raw("Add item"),
@@ -995,7 +1151,7 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         ]),
         Line::from(vec![
             Span::styled("c ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
-            Span::raw("Copy value to clipboard"),
+            Span::raw("Copy value"),
         ]),
         Line::from(vec![
             Span::styled("g ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
@@ -1023,11 +1179,11 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         ]),
         Line::from(vec![
             Span::styled("Ctrl+v ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
-            Span::raw("Paste from clipboard (in value field)"),
+            Span::raw("Paste clipboard"),
         ]),
         Line::from(vec![
             Span::styled("F2 ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
-            Span::raw("Open vault registry"),
+            Span::raw("Vault registry"),
         ]),
         Line::from(vec![
             Span::styled("q ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
@@ -1035,21 +1191,22 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
         ]),
     ];
 
-    let help = Paragraph::new(help_lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(c_border()))
-                .style(Style::default().bg(c_bg_panel()))
-                .title(Span::styled(
-                    " Help ",
-                    Style::default().fg(c_accent2()).add_modifier(Modifier::BOLD),
-                )),
-        )
+    let help_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(c_border()))
+        .style(Style::default().bg(c_bg_panel()))
+        .title(Span::styled(
+            " Help ",
+            Style::default().fg(c_accent2()).add_modifier(Modifier::BOLD),
+        ));
+
+    let help_paragraph = Paragraph::new(help_content)
+        .block(help_block)
         .wrap(Wrap { trim: true })
         .style(Style::default().fg(c_text()));
-    f.render_widget(help, chunks[1]);
+
+    f.render_widget(help_paragraph, area);
 }
 
 fn draw_status_bar(f: &mut Frame, app: &App, area: Rect) {
@@ -1348,6 +1505,16 @@ const fn get_value_title_for_kind(kind: ItemKind) -> &'static str {
         ItemKind::SshKey => "SSH Private Key",
         ItemKind::Certificate => "Certificate (PEM format)",
         ItemKind::Database => "Connection String",
+        ItemKind::CreditCard => "Card Details",
+        ItemKind::SecureNote => "Secure Note Content",
+        ItemKind::Identity => "Identity Information",
+        ItemKind::Server => "Server Credentials",
+        ItemKind::WifiPassword => "WiFi Password",
+        ItemKind::License => "License Key",
+        ItemKind::BankAccount => "Account Details",
+        ItemKind::Document => "Document Content",
+        ItemKind::Recovery => "Recovery Codes",
+        ItemKind::OAuth => "OAuth Token",
     }
 }
 

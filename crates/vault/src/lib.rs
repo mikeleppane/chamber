@@ -31,6 +31,16 @@ pub enum ItemKind {
     SshKey,
     Certificate,
     Database,
+    CreditCard,
+    SecureNote,
+    Identity,
+    BankAccount,
+    Document,
+    Recovery,
+    OAuth,
+    License,
+    WifiPassword,
+    Server,
 }
 
 impl FromStr for ItemKind {
@@ -41,10 +51,20 @@ impl FromStr for ItemKind {
             "password" | "pass" | "pwd" => ItemKind::Password,
             "envvar" | "env" => ItemKind::EnvVar,
             "note" => ItemKind::Note,
-            "apikey" | "api" => ItemKind::ApiKey,
+            "apikey" | "api_key" | "api-key" | "token" | "api" => ItemKind::ApiKey,
             "sshkey" | "ssh" => ItemKind::SshKey,
-            "certificate" | "cert" => ItemKind::Certificate,
+            "certificate" | "cert" | "ssl" | "tls" => ItemKind::Certificate,
             "database" | "db" => ItemKind::Database,
+            "creditcard" | "credit" | "card" => ItemKind::CreditCard,
+            "securenote" | "secure" => ItemKind::SecureNote,
+            "identity" | "id" | "passport" | "ssn" => ItemKind::Identity,
+            "bankaccount" | "bank" | "account" => ItemKind::BankAccount,
+            "document" | "doc" | "file" => ItemKind::Document,
+            "recovery" | "recoverycode" | "backup" => ItemKind::Recovery,
+            "oauth" | "oauth2" => ItemKind::OAuth,
+            "license" | "lic" | "key" => ItemKind::License,
+            "server" | "srv" | "host" => ItemKind::Server,
+            "wifi" | "wifi-password" | "wifi-pass" => ItemKind::WifiPassword,
             _ => return Err(eyre!("Invalid item type: '{}'", s)),
         };
         Ok(result)
@@ -55,13 +75,23 @@ impl ItemKind {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            ItemKind::Password => "password",
-            ItemKind::EnvVar => "env",
-            ItemKind::Note => "note",
-            ItemKind::ApiKey => "apikey",
-            ItemKind::SshKey => "sshkey",
-            ItemKind::Certificate => "certificate",
-            ItemKind::Database => "database",
+            Self::Password => "password",
+            Self::EnvVar => "env",
+            Self::Note => "note",
+            Self::ApiKey => "apikey",
+            Self::SshKey => "sshkey",
+            Self::Certificate => "certificate",
+            Self::Database => "database",
+            Self::CreditCard => "creditcard",
+            Self::SecureNote => "securenote",
+            Self::Identity => "identity",
+            Self::Server => "server",
+            Self::WifiPassword => "wifi",
+            Self::License => "license",
+            Self::BankAccount => "bankaccount",
+            Self::Document => "document",
+            Self::Recovery => "recovery",
+            Self::OAuth => "oauth",
         }
     }
 
@@ -75,6 +105,16 @@ impl ItemKind {
             ItemKind::SshKey,
             ItemKind::Certificate,
             ItemKind::Database,
+            ItemKind::CreditCard,
+            ItemKind::SecureNote,
+            ItemKind::Identity,
+            ItemKind::Server,
+            ItemKind::WifiPassword,
+            ItemKind::License,
+            ItemKind::BankAccount,
+            ItemKind::Document,
+            ItemKind::Recovery,
+            ItemKind::OAuth,
         ]
     }
 
@@ -89,6 +129,16 @@ impl ItemKind {
             ItemKind::SshKey => "SSH Key",
             ItemKind::Certificate => "Certificate",
             ItemKind::Database => "Database Connection",
+            ItemKind::CreditCard => "Credit Card",
+            ItemKind::SecureNote => "Secure Note",
+            ItemKind::Identity => "Identity",
+            ItemKind::Server => "Server",
+            ItemKind::WifiPassword => "Wifi",
+            ItemKind::License => "License",
+            ItemKind::BankAccount => "Bank Account",
+            ItemKind::Document => "Document",
+            ItemKind::Recovery => "Recovery",
+            ItemKind::OAuth => "OAuth",
         }
     }
 }

@@ -425,7 +425,28 @@ impl App {
         self.filtered_items.get(self.selected)
     }
 
-    pub fn get_item_counts(&self) -> (usize, usize, usize, usize, usize, usize, usize, usize) {
+    pub fn get_item_counts(
+        &self,
+    ) -> (
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+    ) {
         let passwords = self
             .items
             .iter()
@@ -446,15 +467,69 @@ impl App {
             .filter(|i| matches!(i.kind, ItemKind::Database))
             .count();
 
+        // New categories
+        let credit_cards = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::CreditCard))
+            .count();
+        let secure_notes = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::SecureNote))
+            .count();
+        let identities = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Identity))
+            .count();
+        let servers = self.items.iter().filter(|i| matches!(i.kind, ItemKind::Server)).count();
+        let wifi_passwords = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::WifiPassword))
+            .count();
+        let licenses = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::License))
+            .count();
+        let bank_accounts = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::BankAccount))
+            .count();
+        let documents = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Document))
+            .count();
+        let recovery_codes = self
+            .items
+            .iter()
+            .filter(|i| matches!(i.kind, ItemKind::Recovery))
+            .count();
+        let oauth_tokens = self.items.iter().filter(|i| matches!(i.kind, ItemKind::OAuth)).count();
+
         (
-            self.items.len(),
-            passwords,
-            env_vars,
-            notes,
-            api_keys,
-            ssh_keys,
-            certificates,
-            databases,
+            self.items.len(), // total
+            passwords,        // 1
+            env_vars,         // 2
+            notes,            // 3
+            api_keys,         // 4
+            ssh_keys,         // 5
+            certificates,     // 6
+            databases,        // 7
+            credit_cards,     // 8
+            secure_notes,     // 9
+            identities,       // 10
+            servers,          // 11
+            wifi_passwords,   // 12
+            licenses,         // 13
+            bank_accounts,    // 14
+            documents,        // 15
+            recovery_codes,   // 16
+            oauth_tokens,     // 17
         )
     }
 
@@ -504,15 +579,7 @@ impl App {
     /// - Resets both single-line (`add_value`) and multi-line (`add_value_textarea`) value fields upon successful addition.
     /// - Automatically trims leading and trailing whitespace from the item name.
     pub fn add_item(&mut self) -> Result<()> {
-        let kind = match self.add_kind_idx {
-            0 => ItemKind::Password,
-            1 => ItemKind::EnvVar,
-            3 => ItemKind::ApiKey,
-            4 => ItemKind::SshKey,
-            5 => ItemKind::Certificate,
-            6 => ItemKind::Database,
-            _ => ItemKind::Note,
-        };
+        let kind = ItemKind::all()[self.add_kind_idx.min(ItemKind::all().len() - 1)];
 
         // Get the value from textarea instead of add_value
         let value = self.add_value_textarea.lines().join("\n");

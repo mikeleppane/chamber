@@ -321,8 +321,10 @@ dependencies = [
  "chrono",
  "clap",
  "color-eyre",
+ "dirs",
  "regex",
  "rpassword",
+ "serde_json",
  "time",
 ]
 

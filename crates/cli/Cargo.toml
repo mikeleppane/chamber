@@ -16,5 +16,7 @@ time = {workspace = true}
 chrono = {workspace = true}
 regex = {workspace = true}
 arboard = {workspace = true}
+serde_json = {workspace = true}
+dirs = {workspace = true}
 [dev-dependencies]
 time = "0.3.41"
