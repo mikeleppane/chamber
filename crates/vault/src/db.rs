@@ -306,7 +306,7 @@ impl Db {
     /// This function will return an error if:
     /// * The connection to the database fails.
     /// * The SQL execution fails.
-    pub fn delete_item(&self, id: i64) -> Result<()> {
+    pub fn delete_item(&self, id: u64) -> Result<()> {
         self.conn.execute("DELETE FROM items WHERE id = ?", params![id])?;
         Ok(())
     }
@@ -330,7 +330,7 @@ impl Db {
     /// # Errors
     /// - Returns an error if the timestamp formatting fails.
     /// - Returns an error if the SQL execution fails.
-    pub fn update_item(&self, id: i64, nonce: &[u8], ciphertext: &[u8]) -> Result<()> {
+    pub fn update_item(&self, id: u64, nonce: &[u8], ciphertext: &[u8]) -> Result<()> {
         let now = OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339)?;
         self.conn.execute(
             "UPDATE items SET nonce = ?, ciphertext = ?, updated_at = ? WHERE id = ?",
@@ -341,7 +341,7 @@ impl Db {
 }
 
 pub struct ItemRow {
-    pub id: i64,
+    pub id: u64,
     pub name: String,
     pub kind: String,
     pub nonce: Vec<u8>,

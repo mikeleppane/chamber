@@ -8,7 +8,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct VaultManager {
     pub registry: VaultRegistry,
-    open_vaults: HashMap<String, Vault>,
+    pub open_vaults: HashMap<String, Vault>,
 }
 
 impl VaultManager {
@@ -414,7 +414,7 @@ mod tests {
         Ok(())
     }
 
-    fn create_test_item(id: i64, name: &str) -> Item {
+    fn create_test_item(id: u64, name: &str) -> Item {
         Item {
             id,
             name: name.to_string(),

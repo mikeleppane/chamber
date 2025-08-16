@@ -62,7 +62,7 @@ pub struct VaultRegistry {
     pub active_vault_id: Option<String>,
     /// Registry file path
     #[serde(skip)]
-    pub(crate) registry_path: PathBuf,
+    pub registry_path: PathBuf,
 }
 
 impl VaultRegistry {

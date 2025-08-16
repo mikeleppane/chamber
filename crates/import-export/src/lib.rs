@@ -403,7 +403,7 @@ mod tests {
         std::env::temp_dir().join(format!("chamber_ie_test_{pid}_{now}.{ext}"))
     }
 
-    fn mk_item(id: i64, name: &str, kind: ItemKind, value: &str) -> Item {
+    fn mk_item(id: u64, name: &str, kind: ItemKind, value: &str) -> Item {
         let now = OffsetDateTime::now_utc();
         Item {
             id,
@@ -811,7 +811,7 @@ mod tests {
         let items: Vec<Item> = all_kinds
             .iter()
             .enumerate()
-            .map(|(i, &kind)| mk_item(i as i64 + 1, &format!("item_{}", kind.as_str()), kind, "test_value"))
+            .map(|(i, &kind)| mk_item(i as u64 + 1, &format!("item_{}", kind.as_str()), kind, "test_value"))
             .collect();
 
         // Test JSON round trip
