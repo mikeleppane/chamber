@@ -132,7 +132,8 @@ Commands:
 ```
 
 ## Chamber REST API
-Chamber provides a comprehensive REST API that enables programmatic access to all vault operations. The API features JWT-based authentication, session management, and full CRUD operations for secrets and vaults.
+Chamber provides a comprehensive REST API that enables programmatic access to all vault operations. 
+The API features JWT-based authentication, session management, and full CRUD operations for secrets and vaults.
 
 ### 🚀 Getting Started with the API
 
@@ -259,7 +260,8 @@ GET /api/v1/items/{id}/value Authorization: Bearer YOUR_JWT_TOKEN
 
 **Response:**
 ```json
-{ "data": { "id": 1, "name": "GitHub Token", "kind": "apikey", "value": "ghp_actual_token_value_here", "created_at": "2024-08-15T10:30:00Z", "updated_at": "2024-08-15T10:30:00Z" } }
+{ "data": { "id": 1, "name": "GitHub Token", "kind": "apikey", "value": "ghp_actual_token_value_here", 
+  "created_at": "2024-08-15T10:30:00Z", "updated_at": "2024-08-15T10:30:00Z" } }
 ``` 
 
 #### Update Secret
@@ -299,7 +301,8 @@ GET /api/v1/items/search?q=github&limit=10&fuzzy=true Authorization: Bearer YOUR
 
 **Response:**
 ```json
-{ "data": { "items": [...], "total_found": 5, "total_available": 25, "query_time_ms": 12, "has_more": false, "next_offset": null } }
+{ "data": { "items": [...], "total_found": 5, "total_available": 25, "query_time_ms": 12, 
+  "has_more": false, "next_offset": null } }
 ``` 
 
 ### 🔑 Password Generation
@@ -307,7 +310,8 @@ GET /api/v1/items/search?q=github&limit=10&fuzzy=true Authorization: Bearer YOUR
 #### Generate Secure Password
 ```bash
 POST /api/v1/passwords/generate Authorization: Bearer YOUR_JWT_TOKEN
-{ "length": 16, "include_uppercase": true, "include_lowercase": true, "include_digits": true, "include_symbols": true, "exclude_ambiguous": true }
+{ "length": 16, "include_uppercase": true, "include_lowercase": true, "include_digits": true, "include_symbols": 
+true, "exclude_ambiguous": true }
 ``` 
 
 **Response:**
@@ -340,7 +344,8 @@ GET /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
 #### Create New Vault
 ```bash
 POST /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
-{ "name": "Work Secrets", "category": "work", "description": "Corporate credentials and API keys", "master_password": "secure_vault_password" }
+{ "name": "Work Secrets", "category": "work", "description": "Corporate credentials and API keys", 
+"master_password": "secure_vault_password" }
 ``` 
 
 #### Switch Active Vault
@@ -400,7 +405,8 @@ GET /api/v1/stats Authorization: Bearer YOUR_JWT_TOKEN
 
 **Response:**
 ```json
-{ "data": { "total_items": 42, "password_items": 15, "note_items": 8, "card_items": 3, "other_items": 16, "vault_size_bytes": 8192, "oldest_item_age_days": 90, "newest_item_age_days": 1, "average_password_length": 18.5 } }
+{ "data": { "total_items": 42, "password_items": 15, "note_items": 8, "card_items": 3, "other_items": 16, 
+  "vault_size_bytes": 8192, "oldest_item_age_days": 90, "newest_item_age_days": 1, "average_password_length": 18.5 } }
 ``` 
 
 #### Security Health Report
@@ -410,7 +416,9 @@ GET /api/v1/health/report Authorization: Bearer YOUR_JWT_TOKEN
 
 **Response:**
 ```json
-{ "data": { "weak_passwords": ["Old Password", "Simple123"], "reused_passwords": [ { , "old_passwords": [ { , "short_passwords": ["PIN Code"], "common_passwords": ["Admin Password"], "total_items": 25, "password_items": 18, "security_score": 78.5 } }
+{ "data": { "weak_passwords": ["Old Password", "Simple123"], "reused_passwords": [ { , "old_passwords": 
+  [ { , "short_passwords": ["PIN Code"], "common_passwords": ["Admin Password"], "total_items": 25, 
+    "password_items": 18, "security_score": 78.5 } }
 ``` 
 
 #### Item Counts by Type
@@ -461,38 +469,40 @@ if ! response=(curl -s -w "%{http_code}" \ -H "Authorization: BearerCHAMBER_API_
 [https://your-domain.com/api/v1/items](https://your-domain.com/api/v1/items)); then echo "API request failed" exit 1 fi
 ```
 
-### 📚 OpenAPI Specification
+## 📚 OpenAPI Specification
 The Chamber API follows the OpenAPI 3.0 specification. Key endpoints summary:
 
-| Method | Endpoint | Description | Scopes Required |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/health` | Health check | None |
-| `POST` | `/api/v1/auth/login` | Authenticate with master password | None |
-| `POST` | `/api/v1/auth/logout` | Logout and lock vault | Any |
-| `POST` | `/api/v1/session/lock` | Lock vault session | Any |
-| `POST` | `/api/v1/session/unlock` | Unlock vault session | Any |
-| `GET` | `/api/v1/items` | List secrets | `read:items` |
-| `POST` | `/api/v1/items` | Create secret | `write:items` |
-| `GET` | `/api/v1/items/{id}` | Get secret metadata | `read:items` |
-| `GET` | `/api/v1/items/{id}/value` | Get secret value | `reveal:values` |
-| `PUT` | `/api/v1/items/{id}` | Update secret | `write:items` |
-| `DELETE` | `/api/v1/items/{id}` | Delete secret | `write:items` |
-| `GET` | `/api/v1/items/search` | Search secrets | `vault:read` |
-| `GET` | `/api/v1/items/counts` | Get item counts | `read:items` |
-| `POST` | `/api/v1/items/{id}/copy` | Copy to clipboard | `reveal:values` |
-| `POST` | `/api/v1/passwords/generate` | Generate password | `generate:passwords` |
-| `POST` | `/api/v1/passwords/memorable` | Generate memorable password | `generate:passwords` |
-| `GET` | `/api/v1/vaults` | List vaults | `read:items` |
-| `POST` | `/api/v1/vaults` | Create vault | `manage:vaults` |
-| `POST` | `/api/v1/vaults/{id}/switch` | Switch active vault | `manage:vaults` |
-| `PATCH` | `/api/v1/vaults/{id}` | Update vault | `manage:vaults` |
-| `DELETE` | `/api/v1/vaults/{id}` | Delete vault | `manage:vaults` |
-| `POST` | `/api/v1/import` | Import secrets | `write:items` |
-| `POST` | `/api/v1/export` | Export secrets | `read:items` |
-| `POST` | `/api/v1/import/dry-run` | Preview import | `read:items` |
-| `GET` | `/api/v1/stats` | Vault statistics | `vault:read` |
-| `GET` | `/api/v1/health/report` | Security health report | `vault:health` |
-**Ready to integrate?** Start your API server with `chamber api` and begin building secure applications with Chamber's REST API! 🚀
+| Method   | Endpoint                      | Description                       | Scopes Required      |
+|----------|-------------------------------|-----------------------------------|----------------------|
+| `GET`    | `/api/v1/health`              | Health check                      | None                 |
+| `POST`   | `/api/v1/auth/login`          | Authenticate with master password | None                 |
+| `POST`   | `/api/v1/auth/logout`         | Logout and lock vault             | Any                  |
+| `POST`   | `/api/v1/session/lock`        | Lock vault session                | Any                  |
+| `POST`   | `/api/v1/session/unlock`      | Unlock vault session              | Any                  |
+| `GET`    | `/api/v1/items`               | List secrets                      | `read:items`         |
+| `POST`   | `/api/v1/items`               | Create secret                     | `write:items`        |
+| `GET`    | `/api/v1/items/{id}`          | Get secret metadata               | `read:items`         |
+| `GET`    | `/api/v1/items/{id}/value`    | Get secret value                  | `reveal:values`      |
+| `PUT`    | `/api/v1/items/{id}`          | Update secret                     | `write:items`        |
+| `DELETE` | `/api/v1/items/{id}`          | Delete secret                     | `write:items`        |
+| `GET`    | `/api/v1/items/search`        | Search secrets                    | `vault:read`         |
+| `GET`    | `/api/v1/items/counts`        | Get item counts                   | `read:items`         |
+| `POST`   | `/api/v1/items/{id}/copy`     | Copy to clipboard                 | `reveal:values`      |
+| `POST`   | `/api/v1/passwords/generate`  | Generate password                 | `generate:passwords` |
+| `POST`   | `/api/v1/passwords/memorable` | Generate memorable password       | `generate:passwords` |
+| `GET`    | `/api/v1/vaults`              | List vaults                       | `read:items`         |
+| `POST`   | `/api/v1/vaults`              | Create vault                      | `manage:vaults`      |
+| `POST`   | `/api/v1/vaults/{id}/switch`  | Switch active vault               | `manage:vaults`      |
+| `PATCH`  | `/api/v1/vaults/{id}`         | Update vault                      | `manage:vaults`      |
+| `DELETE` | `/api/v1/vaults/{id}`         | Delete vault                      | `manage:vaults`      |
+| `POST`   | `/api/v1/import`              | Import secrets                    | `write:items`        |
+| `POST`   | `/api/v1/export`              | Export secrets                    | `read:items`         |
+| `POST`   | `/api/v1/import/dry-run`      | Preview import                    | `read:items`         |
+| `GET`    | `/api/v1/stats`               | Vault statistics                  | `vault:read`         |
+| `GET`    | `/api/v1/health/report`       | Security health report            | `vault:health`       |
+**Ready to integrate?** Start your API server with `chamber api` and begin building secure applications with 
+Chamber's REST API! 🚀
+
 
 ## 🛠️ Development Setup
 ### Environment Setup
