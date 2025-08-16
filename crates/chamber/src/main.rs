@@ -18,12 +18,13 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // If CLI arguments are provided, run CLI mode; otherwise, launch TUI.
     color_eyre::install()?;
     let cli = Cli::parse();
     if let Some(cmd) = cli.command {
-        match handle_command(cmd) {
+        match handle_command(cmd).await {
             Ok(()) => return Ok(()),
             Err(err) => {
                 eprintln!("❌ Error: invalid command! Please check your input.\n{err}");

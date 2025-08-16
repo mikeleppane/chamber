@@ -1,0 +1,47 @@
+[package]
+name = "chamber-api"
+version = "0.2.0"
+description = "Chamber secrets manager API"
+
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[dependencies]
+chamber-vault = { path = "../vault" }
+chamber-password-gen = { path = "../password-gen" }
+chamber-import-export = { path = "../import-export" }
+axum = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+color-eyre = {workspace = true}
+chrono = {workspace = true}
+uuid = {workspace = true}
+rand = {workspace = true}
+jsonwebtoken = {workspace = true}
+tokio = {workspace = true}
+tower-http = {workspace = true}
+tracing = {workspace = true}
+arboard = {workspace = true}
+md5 = {workspace = true}
+
+[dev-dependencies]
+tokio-test = "0.4"
+tower = "0.5"
+tower-service = "0.3"
+hyper = "1.0"
+axum-test = "17.3.0"
+serde_json = {workspace = true}
+tempfile = {workspace = true}
+uuid = {workspace = true}
+futures = "0.3.31"
+http = "1.3.1"
+time = "0.3.41"
+bytes = "1.10.1"
+chrono = "0.4.41"
+dirs = {workspace = true}

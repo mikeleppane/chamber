@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 fn create_test_items(count: usize) -> Vec<Item> {
     (0..count)
         .map(|i| Item {
-            id: i as i64,
+            id: i as u64,
             name: format!("test_item_{i}"),
             kind: match i % 4 {
                 0 => ItemKind::SshKey,

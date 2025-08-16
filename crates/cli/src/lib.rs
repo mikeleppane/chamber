@@ -1,9 +1,11 @@
+mod api;
 mod backup;
 mod health;
 mod stats;
 mod utils;
 mod vault;
 
+use crate::api::handle_api_command;
 use crate::backup::{BackupCommand, handle_backup_command};
 use crate::health::{analyze_password_strength, handle_health_command};
 use crate::stats::handle_stats_command;
@@ -49,6 +51,19 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Start the REST API server
+    Api {
+        #[arg(
+            short,
+            long,
+            default_value = "127.0.0.1:3000",
+            help = "Address to bind the API server to"
+        )]
+        bind: String,
+        #[arg(short, long, help = "Port to bind the API server to")]
+        port: Option<u16>,
+    },
+
     /// Initialize a new Chamber vault with master password encryption
     Init,
 
@@ -290,8 +305,10 @@ pub enum Commands {
 /// ```
 #[allow(clippy::cognitive_complexity)]
 #[allow(clippy::too_many_lines)]
-pub fn handle_command(cmd: Commands) -> Result<()> {
+pub async fn handle_command(cmd: Commands) -> Result<()> {
     match cmd {
+        Commands::Api { bind, port } => handle_api_command(bind, port).await?,
+
         Commands::Init => {
             let mut vault = Vault::open_or_create(None)?;
             if vault.is_initialized() {
@@ -991,8 +1008,8 @@ mod handle_command_tests {
         std::env::temp_dir().join(format!("chamber_cli_{name}_{pid}_{now}"))
     }
 
-    #[test]
-    fn test_generate_simple_ok() {
+    #[tokio::test]
+    async fn test_generate_simple_ok() {
         // Runs the simple generator branch (no prompts involved)
         let cmd = Commands::Generate {
             length: 12,
@@ -1007,11 +1024,11 @@ mod handle_command_tests {
             count: None,
         };
         let res = handle_command(cmd);
-        assert!(res.is_ok());
+        assert!(res.await.is_ok());
     }
 
-    #[test]
-    fn test_generate_complex_ok() {
+    #[tokio::test]
+    async fn test_generate_complex_ok() {
         // Runs the complex generator branch (no prompts involved)
         let cmd = Commands::Generate {
             length: 24,
@@ -1026,11 +1043,11 @@ mod handle_command_tests {
             count: Some(1),
         };
         let res = handle_command(cmd);
-        assert!(res.is_ok());
+        assert!(res.await.is_ok());
     }
 
-    #[test]
-    fn test_generate_memorable_ok() {
+    #[tokio::test]
+    async fn test_generate_memorable_ok() {
         // Runs the memorable generator branch (no prompts involved)
         let cmd = Commands::Generate {
             length: 16, // ignored by memorable branch but required by struct
@@ -1045,11 +1062,11 @@ mod handle_command_tests {
             count: None,
         };
         let res = handle_command(cmd);
-        assert!(res.is_ok());
+        assert!(res.await.is_ok());
     }
 
-    #[test]
-    fn test_generate_count_multiple_ok() {
+    #[tokio::test]
+    async fn test_generate_count_multiple_ok() {
         // Ensure the loop over count works (no prompts involved)
         let cmd = Commands::Generate {
             length: 10,
@@ -1064,11 +1081,11 @@ mod handle_command_tests {
             count: Some(3),
         };
         let res = handle_command(cmd);
-        assert!(res.is_ok());
+        assert!(res.await.is_ok());
     }
 
-    #[test]
-    fn test_generate_custom_no_character_sets_err() {
+    #[tokio::test]
+    async fn test_generate_custom_no_character_sets_err() {
         // Triggers the custom branch and makes the generator return an error
         // by disabling all sets. The error should propagate out of handle_command.
         let cmd = Commands::Generate {
@@ -1083,13 +1100,13 @@ mod handle_command_tests {
             include_ambiguous: false,
             count: None,
         };
-        let err = handle_command(cmd).unwrap_err().to_string();
+        let err = handle_command(cmd).await.unwrap_err().to_string();
         println!("{err}");
         assert!(err.contains("At least one character set must be enabled"));
     }
 
-    #[test]
-    fn test_import_missing_file_err() {
+    #[tokio::test]
+    async fn test_import_missing_file_err() {
         // This hits the early error path for missing an input file without prompting.
         let missing = tmp_path("missing").with_extension("json");
         let cmd = Commands::Import {
@@ -1098,7 +1115,7 @@ mod handle_command_tests {
             dry_run: false,
             skip_duplicates: false,
         };
-        let err = handle_command(cmd).unwrap_err().to_string();
+        let err = handle_command(cmd).await.unwrap_err().to_string();
         assert!(err.contains("Input file does not exist"));
     }
 }

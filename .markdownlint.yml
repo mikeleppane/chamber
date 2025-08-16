@@ -157,3 +157,7 @@ MD052: true
 
 # MD053/link-image-reference-definitions - Link and image reference definitions should be needed
 MD053: true
+
+# MD055/table-pipe-style
+MD055: false
+MD056: false

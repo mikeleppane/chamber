@@ -6,11 +6,11 @@ members = [
     "crates/password-gen",
     "crates/ui",
     "crates/chamber"
-, "crates/backup"]
+, "crates/backup", "crates/api"]
 resolver = "2"
 
 [workspace.package]
-version = "0.4.1"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Mikko Leppänen <mleppan23@gmail.com>"]
@@ -29,6 +29,7 @@ chamber-password-gen = {path = "crates/password-gen"}
 chamber-vault = {path = "crates/vault"}
 chamber-ui = {path = "crates/ui"}
 chamber-backup = {path = "crates/backup"}
+chamber-api = {path = "crates/api"}
 # Crypto dependencies
 argon2 = { version = "0.5.3", features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", features = ["alloc", "std"] }
@@ -47,7 +48,8 @@ serde_json = "1.0.142"
 
 # Time handling
 time = { version = "0.3.41", features = ["formatting", "macros", "parsing", "serde"] }
-chrono = "0.4" 
+chrono = { version = "0.4", features = ["serde"] }
+
 
 # CLI/UI dependencies
 clap = { version = "4.5.43", features = ["derive"] }
@@ -61,10 +63,31 @@ arboard = "3.6.0"
 dirs = "6.0.0"
 rand = "0.9.2"
 flate2 = "1.1.2"
-uuid = { version = "1.0", features = ["v4"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
 criterion = { version = "0.7.0", features = ["html_reports"] }
 tempfile = "3.2"
 regex = "1.11.1"
+md5 = "0.8"
+
+# Web framework
+axum = "0.8"
+tokio = { version = "1.47", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
+async-trait = "0.1.89"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls = "0.23"
+rustls-pemfile = "2.0"
+
+
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Security
+jsonwebtoken = "9"
+
 
 
 [profile.release]

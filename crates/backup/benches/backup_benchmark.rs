@@ -18,7 +18,7 @@ impl MockVault {
     fn new(item_count: usize) -> Self {
         let items = (0..item_count)
             .map(|i| Item {
-                id: i as i64,
+                id: i as u64,
                 name: format!("benchmark_item_{i}"),
                 kind: ItemKind::Password,
                 value: format!("benchmark_password_{i}_with_additional_content_to_simulate_real_world_data"),

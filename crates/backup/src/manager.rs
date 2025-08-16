@@ -427,7 +427,7 @@ mod tests {
         }
     }
 
-    fn create_test_item(id: i64, name: &str) -> Item {
+    fn create_test_item(id: u64, name: &str) -> Item {
         Item {
             id,
             name: name.to_string(),

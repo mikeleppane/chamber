@@ -145,7 +145,7 @@ impl ItemKind {
 
 #[derive(Debug, Clone)]
 pub struct Item {
-    pub id: i64,
+    pub id: u64,
     pub name: String,
     pub kind: ItemKind,
     pub value: String,
@@ -534,7 +534,7 @@ impl Vault {
     /// This function will return an error if:
     /// - The item with the specified ID does not exist.
     /// - There is a failure in the underlying database operation.
-    pub fn delete_item(&mut self, id: i64) -> Result<()> {
+    pub fn delete_item(&mut self, id: u64) -> Result<()> {
         self.db.delete_item(id)
     }
 
@@ -630,7 +630,7 @@ impl Vault {
     /// - If the encryption key is missing, an `eyre!("Locked")` error is returned.
     /// - If the item is not found, an `eyre!("Item not found")` error is returned.
     /// - Any failures during encryption or database operations propagate as errors.
-    pub fn update_item(&mut self, id: i64, new_value: &str) -> Result<()> {
+    pub fn update_item(&mut self, id: u64, new_value: &str) -> Result<()> {
         let vk = self.key.as_ref().ok_or_else(|| eyre!("Locked"))?;
 
         // Get the item to preserve name and kind for AD
