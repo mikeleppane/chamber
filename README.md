@@ -137,8 +137,7 @@ Chamber provides a comprehensive REST API that enables programmatic access to al
 ### 🚀 Getting Started with the API
 
 #### Starting the API Server
-```
-bash
+```bash
 # Start with default settings (localhost:3000)
 chamber api
 # Specify custom bind address and port
@@ -148,8 +147,7 @@ chamber api --bind 192.168.1.100:3000
 ``` 
 
 #### Quick Test
-```
-bash
+```bash
 # Health check
 curl [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
 # Expected response:
@@ -161,25 +159,24 @@ curl [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
 The API uses JWT (JSON Web Token) based authentication with scope-based authorization.
 
 #### Login
-```
-bash POST /api/v1/auth/login
+```bash 
+POST /api/v1/auth/login
 ``` 
 
 **Request Body:**
-```
-json { "master_password": "your_master_password" }
+```json 
+{ "master_password": "your_master_password" }
 ``` 
 
 **Response:**
+```json
+{ "data": { "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", "expires_at": "2024-08-17T14:30:00Z", "scopes": [  } }
 ```
-json { "data": { "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", "expires_at": "2024-08-17T14:30:00Z", "scopes": [  } }
-latex_unknown_tag
-``` 
 
 #### Using the Token
 Include the JWT token in the `Authorization` header for all protected endpoints:
-```
-bash curl -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN"
 [http://localhost:3000/api/v1/items](http://localhost:3000/api/v1/items)
 ``` 
 
@@ -198,28 +195,28 @@ bash curl -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
 #### Lock Session
 Locks the vault while keeping the JWT token valid:
-```
-bash POST /api/v1/session/lock Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/session/lock Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 #### Unlock Session
 Unlocks the vault with master password:
-```
-bash POST /api/v1/session/unlock Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/session/unlock Authorization: Bearer YOUR_JWT_TOKEN
 { "master_password": "your_master_password" }
 ``` 
 
 #### Logout
 Locks the vault and invalidates the session:
-```
-bash POST /api/v1/auth/logout Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/auth/logout Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 ### 🗂️ Secrets Management
 
 #### List Secrets
-```
-bash GET /api/v1/items?limit=50&offset=0&sort=name&order=asc Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/items?limit=50&offset=0&sort=name&order=asc Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Query Parameters:**
@@ -231,14 +228,13 @@ bash GET /api/v1/items?limit=50&offset=0&sort=name&order=asc Authorization: Bear
 - `query` - Search in item names
 
 **Response:**
+```json
+{ "data": { "items": [ { , "total": 1 } }
 ```
-json { "data": { "items": [ { , "total": 1 } }
-latex_unknown_tag
-``` 
 
 #### Create Secret
-```
-bash POST /api/v1/items Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/items Authorization: Bearer YOUR_JWT_TOKEN
 { "name": "Database Password", "kind": "password", "value": "super_secure_password_123" }
 ``` 
 
@@ -252,41 +248,41 @@ bash POST /api/v1/items Authorization: Bearer YOUR_JWT_TOKEN
 - `envvar` - Environment variables
 
 #### Get Secret Details
-```
-bash GET /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 #### Get Secret Value
-```
-bash GET /api/v1/items/{id}/value Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/items/{id}/value Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Response:**
-```
-json { "data": { "id": 1, "name": "GitHub Token", "kind": "apikey", "value": "ghp_actual_token_value_here", "created_at": "2024-08-15T10:30:00Z", "updated_at": "2024-08-15T10:30:00Z" } }
+```json
+{ "data": { "id": 1, "name": "GitHub Token", "kind": "apikey", "value": "ghp_actual_token_value_here", "created_at": "2024-08-15T10:30:00Z", "updated_at": "2024-08-15T10:30:00Z" } }
 ``` 
 
 #### Update Secret
-```
-bash PUT /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+PUT /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
 { "value": "updated_password_value" }
 ``` 
 
 #### Delete Secret
-```
-bash DELETE /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+DELETE /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 #### Copy Secret to Clipboard
-```
-bash POST /api/v1/items/{id}/copy Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/items/{id}/copy Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 ### 🔍 Advanced Search
 
 #### Search Secrets
-```
-bash GET /api/v1/items/search?q=github&limit=10&fuzzy=true Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/items/search?q=github&limit=10&fuzzy=true Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Query Parameters:**
@@ -302,74 +298,73 @@ bash GET /api/v1/items/search?q=github&limit=10&fuzzy=true Authorization: Bearer
 - `case_sensitive` (default: false) - Case sensitive search
 
 **Response:**
-```
-json { "data": { "items": [...], "total_found": 5, "total_available": 25, "query_time_ms": 12, "has_more": false, "next_offset": null } }
+```json
+{ "data": { "items": [...], "total_found": 5, "total_available": 25, "query_time_ms": 12, "has_more": false, "next_offset": null } }
 ``` 
 
 ### 🔑 Password Generation
 
 #### Generate Secure Password
-```
-bash POST /api/v1/passwords/generate Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/passwords/generate Authorization: Bearer YOUR_JWT_TOKEN
 { "length": 16, "include_uppercase": true, "include_lowercase": true, "include_digits": true, "include_symbols": true, "exclude_ambiguous": true }
 ``` 
 
 **Response:**
-```
-json { "data": { "password": "kX9#mP2$vL8@nQ5!", "strength": "Strong" } }
+```json
+{ "data": { "password": "kX9#mP2$vL8@nQ5!", "strength": "Strong" } }
 ``` 
 
 #### Generate Memorable Password
-```
-bash POST /api/v1/passwords/memorable Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/passwords/memorable Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Response:**
-```
-json { "data": { "password": "correct-horse-battery-staple", "strength": "Medium" } }
+```json
+{ "data": { "password": "correct-horse-battery-staple", "strength": "Medium" } }
 ``` 
 
 ### 🏛️ Multi-Vault Management
 
 #### List Vaults
-```
-bash GET /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Response:**
-```
-json { "data": [ {  }
-latex_unknown_tag
+```json
+{ "data": [ {  }
 ``` 
 
 #### Create New Vault
-```
-bash POST /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
 { "name": "Work Secrets", "category": "work", "description": "Corporate credentials and API keys", "master_password": "secure_vault_password" }
 ``` 
 
 #### Switch Active Vault
-```
-bash POST /api/v1/vaults/{vault_id}/switch Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/vaults/{vault_id}/switch Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 #### Update Vault
-```
-bash PATCH /api/v1/vaults/{vault_id} Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+PATCH /api/v1/vaults/{vault_id} Authorization: Bearer YOUR_JWT_TOKEN
 { "name": "Updated Vault Name", "description": "Updated description", "favorite": true }
 ``` 
 
 #### Delete Vault
-```
-bash DELETE /api/v1/vaults/{vault_id} Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+DELETE /api/v1/vaults/{vault_id} Authorization: Bearer YOUR_JWT_TOKEN
 { "delete_file": false }
 ``` 
 
 ### 📤📥 Import/Export
 
 #### Export Secrets
-```
-bash POST /api/v1/export Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/export Authorization: Bearer YOUR_JWT_TOKEN
 { "format": "json", "path": "/path/to/export.json", "filter": { "kind": "password", "query": "github" } }
 ``` 
 
@@ -379,63 +374,60 @@ bash POST /api/v1/export Authorization: Bearer YOUR_JWT_TOKEN
 - `backup` - Chamber's enhanced backup format
 
 #### Import Secrets
-```
-bash POST /api/v1/import Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/import Authorization: Bearer YOUR_JWT_TOKEN
 { "format": "json", "path": "/path/to/import.json" }
 ``` 
 
 **Response:**
-```
-json { "data": { "imported": 15, "skipped": 2, "report": [  } }
-latex_unknown_tag
+```json
+{ "data": { "imported": 15, "skipped": 2, "report": [  } }
 ``` 
 
 #### Dry Run Import
 Preview import without making changes:
-```
-bash POST /api/v1/import/dry-run Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+POST /api/v1/import/dry-run Authorization: Bearer YOUR_JWT_TOKEN
 { "format": "json", "path": "/path/to/import.json" }
 ``` 
 
 ### 📊 Analytics & Health
 
 #### Vault Statistics
-```
-bash GET /api/v1/stats Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/stats Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Response:**
-```
-json { "data": { "total_items": 42, "password_items": 15, "note_items": 8, "card_items": 3, "other_items": 16, "vault_size_bytes": 8192, "oldest_item_age_days": 90, "newest_item_age_days": 1, "average_password_length": 18.5 } }
+```json
+{ "data": { "total_items": 42, "password_items": 15, "note_items": 8, "card_items": 3, "other_items": 16, "vault_size_bytes": 8192, "oldest_item_age_days": 90, "newest_item_age_days": 1, "average_password_length": 18.5 } }
 ``` 
 
 #### Security Health Report
-```
-bash GET /api/v1/health/report Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/health/report Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Response:**
-```
-json { "data": { "weak_passwords": ["Old Password", "Simple123"], "reused_passwords": [ { , "old_passwords": [ { , "short_passwords": ["PIN Code"], "common_passwords": ["Admin Password"], "total_items": 25, "password_items": 18, "security_score": 78.5 } }
-latex_unknown_tag
-latex_unknown_tag
+```json
+{ "data": { "weak_passwords": ["Old Password", "Simple123"], "reused_passwords": [ { , "old_passwords": [ { , "short_passwords": ["PIN Code"], "common_passwords": ["Admin Password"], "total_items": 25, "password_items": 18, "security_score": 78.5 } }
 ``` 
 
 #### Item Counts by Type
-```
-bash GET /api/v1/items/counts Authorization: Bearer YOUR_JWT_TOKEN
+```bash
+GET /api/v1/items/counts Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
 **Response:**
-```
-json { "data": { "total": 25, "by_kind": { "password": 12, "apikey": 6, "note": 4, "sshkey": 2, "certificate": 1 } } }
+```json
+{ "data": { "total": 25, "by_kind": { "password": 12, "apikey": 6, "note": 4, "sshkey": 2, "certificate": 1 } } }
 ``` 
 
 ### 🚨 Error Handling
 
 The API uses consistent error response format:
-```
-json { "error": { "code": "UNAUTHORIZED", "message": "Authentication required" } }
+```json
+{ "error": { "code": "UNAUTHORIZED", "message": "Authentication required" } }
 ``` 
 
 **HTTP Status Codes:**
@@ -457,8 +449,7 @@ json { "error": { "code": "UNAUTHORIZED", "message": "Authentication required" }
 - **Vault Encryption**: Vault data remains encrypted at rest
 
 #### Best Practices
-```
-bash
+```bash
 # Use environment variables for sensitive data
 export CHAMBER_API_TOKEN="your_jwt_token_here"
 # Always verify SSL certificates
