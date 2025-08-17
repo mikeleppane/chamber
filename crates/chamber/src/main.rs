@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
 
     let res = {
         let mut app = App::new()?;
-        run_app(&mut app)
+        run_app(&mut app).await
     };
 
     crossterm::execute!(

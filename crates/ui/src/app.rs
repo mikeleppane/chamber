@@ -1,15 +1,16 @@
 use crate::app;
 use crate::vault_selector::{VaultAction, VaultSelector, VaultSelectorMode};
+use async_trait::async_trait;
 use chamber_import_export::{ExportFormat, export_items, import_items};
 use chamber_password_gen::PasswordConfig;
-use chamber_vault::{Item, ItemKind, NewItem, Vault, VaultManager};
+use chamber_vault::{AutoLockCallback, AutoLockConfig, AutoLockService, Item, ItemKind, NewItem, Vault, VaultManager};
 use color_eyre::Result;
 use color_eyre::eyre::eyre;
 use ratatui::prelude::Style;
 use ratatui::style::Color;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tui_textarea::TextArea;
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
     Unlock,
@@ -113,6 +114,27 @@ pub struct ItemCounts {
     pub oauth_tokens: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct CountdownInfo {
+    pub enabled: bool,
+    pub minutes_left: i64,
+    pub seconds_left: i64,
+}
+
+pub struct TuiAutoLockCallback {
+    // Callback to lock the TUI app
+}
+
+#[async_trait]
+impl AutoLockCallback for TuiAutoLockCallback {
+    async fn on_auto_lock(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Lock the vault in TUI mode
+        // This could set a flag that the main loop checks
+        Ok(())
+    }
+}
+
+#[allow(clippy::struct_excessive_bools)]
 pub struct App {
     pub vault: Vault,
     pub vault_manager: VaultManager,
@@ -140,6 +162,9 @@ pub struct App {
     pub status_type: StatusType,
     pub scroll_offset: usize,
     pub add_value_textarea: TextArea<'static>,
+    pub auto_lock_service: Option<Arc<AutoLockService>>,
+    pub auto_locked: bool,
+    pub countdown_info: Option<CountdownInfo>,
 
     // Change passes key dialog fields
     pub ck_current: String,
@@ -240,6 +265,10 @@ impl App {
             (Screen::Unlock, true) // Setup mode (create master password)
         };
 
+        let auto_lock_config = AutoLockConfig::default();
+        let callback = Arc::new(TuiAutoLockCallback {});
+        let auto_lock_service = Some(Arc::new(AutoLockService::new(auto_lock_config, callback)));
+
         Ok(Self {
             vault,
             vault_manager,
@@ -273,6 +302,9 @@ impl App {
                 textarea.set_placeholder_text("Enter your value here...");
                 textarea
             },
+            auto_lock_service,
+            auto_locked: false,
+            countdown_info: None,
 
             ck_current: String::new(),
             ck_new: String::new(),
@@ -1335,5 +1367,46 @@ impl App {
                 self.vault_selector.error_message = Some(format!("Failed to import vault: {e}"));
             }
         }
+    }
+    pub async fn update_activity(&mut self) {
+        if let Some(service) = &self.auto_lock_service {
+            service.update_activity().await;
+        }
+    }
+
+    pub async fn check_auto_lock(&mut self) -> bool {
+        if let Some(service) = &self.auto_lock_service {
+            if service.activity_tracker.should_auto_lock().await {
+                self.auto_locked = true;
+                self.screen = Screen::Unlock;
+                return true;
+            }
+        }
+        false
+    }
+
+    pub async fn get_time_until_auto_lock(&self) -> Option<chrono::Duration> {
+        if let Some(service) = &self.auto_lock_service {
+            service.get_time_until_lock().await
+        } else {
+            None
+        }
+    }
+
+    pub async fn update_countdown_info(&mut self) {
+        if let Some(time_left) = self.get_time_until_auto_lock().await {
+            self.countdown_info = Some(CountdownInfo {
+                enabled: true,
+                minutes_left: time_left.num_minutes(),
+                seconds_left: time_left.num_seconds(),
+            });
+        } else {
+            self.countdown_info = None;
+        }
+    }
+
+    // Synchronous method for the drawing function
+    pub const fn get_countdown_info(&self) -> Option<&CountdownInfo> {
+        self.countdown_info.as_ref()
     }
 }

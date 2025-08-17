@@ -1,3 +1,5 @@
+mod autolock;
+mod autolock_service;
 pub mod config;
 pub mod crypto;
 pub mod db;
@@ -12,6 +14,9 @@ pub use crypto::{
 
 pub use db::{Db, ItemRow};
 
+pub use crate::autolock::AutoLockConfig;
+pub use crate::autolock_service::AutoLockCallback;
+pub use crate::autolock_service::AutoLockService;
 pub use crate::config::BackupConfig;
 pub use crate::manager::VaultManager;
 pub use crate::registry::{VaultCategory, VaultInfo, VaultRegistry};

@@ -10,7 +10,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Mikko Leppänen <mleppan23@gmail.com>"]
@@ -75,11 +75,6 @@ tokio = { version = "1.47", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
 async-trait = "0.1.89"
-axum-server = { version = "0.7", features = ["tls-rustls"] }
-rustls = "0.23"
-rustls-pemfile = "2.0"
-
-
 
 # Logging
 tracing = "0.1"
