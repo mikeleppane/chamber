@@ -170,12 +170,12 @@ The API uses JWT (JSON Web Token) based authentication with scope-based authoriz
 POST /api/v1/auth/login
 ``` 
 
-**Request Body:**
+Request Body
 ```json 
 { "master_password": "your_master_password" }
 ``` 
 
-**Response:**
+Response
 ```json
 {
   "data": {
@@ -204,7 +204,7 @@ Include the JWT token in the `Authorization` header for all protected endpoints:
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" http://localhost:3000/api/v1/items
 ```
-**Response:**
+Response
 ```json
 {
   "data": {
@@ -243,7 +243,7 @@ Locks the vault while keeping the JWT token valid:
 POST /api/v1/session/lock Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": "Session locked successfully"
@@ -257,7 +257,7 @@ POST /api/v1/session/unlock Authorization: Bearer YOUR_JWT_TOKEN
 { "master_password": "your_master_password" }
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": "Session unlocked successfully"
@@ -277,7 +277,7 @@ POST /api/v1/auth/logout Authorization: Bearer YOUR_JWT_TOKEN
 ```bash
 GET /api/v1/items?limit=50&offset=0&sort=name&order=asc Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
-**Response:**
+Response
 ```json
 {
   "data": {
@@ -310,7 +310,7 @@ GET /api/v1/items?limit=50&offset=0&sort=name&order=asc Authorization: Bearer YO
 POST /api/v1/items Authorization: Bearer YOUR_JWT_TOKEN
 { "name": "Database Password", "kind": "password", "value": "super_secure_password_123" }
 ``` 
-** Response **
+Response
 ```json
 {
   "data": {
@@ -339,7 +339,7 @@ POST /api/v1/items Authorization: Bearer YOUR_JWT_TOKEN
 GET /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": {
@@ -360,7 +360,7 @@ GET /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
 GET /api/v1/items/{id}/value Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-**Response:**
+Response
 ```json
 {
   "data": {
@@ -380,7 +380,7 @@ PUT /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
 { "value": "updated_password_value" }
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": {
@@ -405,7 +405,7 @@ DELETE /api/v1/items/{id} Authorization: Bearer YOUR_JWT_TOKEN
 POST /api/v1/items/{id}/copy Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": "Item deleted successfully"
@@ -418,7 +418,7 @@ POST /api/v1/items/{id}/copy Authorization: Bearer YOUR_JWT_TOKEN
 ```bash
 GET /api/v1/items/search?q=MY_PASSWORD&limit=10&fuzzy=true Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
-** Response **
+Response
 ```json
 {
   "data": {
@@ -465,7 +465,7 @@ POST /api/v1/passwords/generate Authorization: Bearer YOUR_JWT_TOKEN
 true, "exclude_ambiguous": true }
 ``` 
 
-**Response:**
+Response
 ```json
 {
   "data": {
@@ -482,7 +482,7 @@ true, "exclude_ambiguous": true }
 GET /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-**Response:**
+Response
 ```json
 {
   "data": [
@@ -505,7 +505,7 @@ POST /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
 "master_password": "secure_vault_password" }
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": {
@@ -524,7 +524,7 @@ POST /api/v1/vaults Authorization: Bearer YOUR_JWT_TOKEN
 POST /api/v1/vaults/{vault_id}/switch Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": "Switched to vault: 94ff3c6f-e653-4a6c-a5e3-fc1c2fd836b5"
@@ -537,7 +537,7 @@ PATCH /api/v1/vaults/{vault_id} Authorization: Bearer YOUR_JWT_TOKEN
 { "name": "Updated Vault Name", "description": "Updated description", "favorite": true }
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": {
@@ -556,7 +556,7 @@ PATCH /api/v1/vaults/{vault_id} Authorization: Bearer YOUR_JWT_TOKEN
 DELETE /api/v1/vaults/{vault_id} Authorization: Bearer YOUR_JWT_TOKEN
 { "delete_file": false }
 ```
-** Response **
+Response
 ```json
 {
   "data": "Deleted vault: 94ff3c6f-e653-4a6c-a5e3-fc1c2fd836b5"
@@ -571,7 +571,7 @@ POST /api/v1/export Authorization: Bearer YOUR_JWT_TOKEN
 { "format": "json", "path": "/path/to/export.json", "filter": { "kind": "password", "query": "github" } }
 ``` 
 
-** Response **
+Response
 ```json
 {
   "data": {
@@ -599,7 +599,7 @@ POST /api/v1/import Authorization: Bearer YOUR_JWT_TOKEN
 GET /api/v1/stats Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-**Response:**
+Response
 ```json
 {
   "data": {
@@ -621,7 +621,7 @@ GET /api/v1/stats Authorization: Bearer YOUR_JWT_TOKEN
 GET /api/v1/health/report Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-**Response:**
+Response
 ```json
 {
   "data": {
@@ -646,7 +646,7 @@ GET /api/v1/health/report Authorization: Bearer YOUR_JWT_TOKEN
 GET /api/v1/items/counts Authorization: Bearer YOUR_JWT_TOKEN
 ``` 
 
-**Response:**
+Response
 ```json
 {
   "data": {
