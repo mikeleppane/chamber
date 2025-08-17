@@ -130,6 +130,7 @@ pub struct App {
     pub view_mode: ViewMode,
     pub filtered_items: Vec<Item>,
     pub search_query: String,
+    pub search_mode: bool,
 
     pub add_name: String,
     pub add_kind_idx: usize,
@@ -255,6 +256,7 @@ impl App {
             view_mode: ViewMode::All,
             filtered_items: vec![],
             search_query: String::new(),
+            search_mode: false,
             add_name: String::new(),
             add_kind_idx: 0,
             add_value: String::new(),
