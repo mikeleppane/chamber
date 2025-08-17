@@ -55,7 +55,7 @@ impl AuthState {
     /// - Token issue timestamp conversion fails
     /// - Token generation process fails
     pub fn generate_token(&self, scopes: Vec<String>) -> ApiResult<String> {
-        let expiration = Utc::now() + Duration::hours(24);
+        let expiration = Utc::now() + Duration::hours(1);
 
         let claims = TokenClaims {
             sub: "api-user".to_string(),

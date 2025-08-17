@@ -156,14 +156,34 @@ fn truncate_text(text: &str, max_width: usize) -> String {
 ///   using `event::poll`, blocking for 250 milliseconds before timing out.
 /// * Pressing specific keys, as determined by the `handle_key` function, can
 ///   terminate the event loop.
-pub fn run_app(app: &mut App) -> Result<()> {
+pub async fn run_app(app: &mut App) -> Result<()> {
     let backend = CrosstermBackend::new(std::io::stdout());
     let mut terminal = Terminal::new(backend)?;
+
+    let mut last_countdown_update = std::time::Instant::now();
+    let countdown_update_interval = std::time::Duration::from_secs(1);
+
     terminal.clear()?;
+    let _auto_lock_handle = if let Some(service) = &app.auto_lock_service {
+        Some(service.start().await)
+    } else {
+        None
+    };
+
     loop {
+        if last_countdown_update.elapsed() >= countdown_update_interval {
+            app.update_countdown_info().await;
+            last_countdown_update = std::time::Instant::now();
+        }
+
         terminal.draw(|f| draw(f, app))?;
+        if app.check_auto_lock().await {
+            continue;
+        }
+
         if event::poll(std::time::Duration::from_millis(250))? {
             if let Event::Key(key) = event::read()? {
+                app.update_activity().await;
                 if key.kind == KeyEventKind::Press && handle_key(app, key)? {
                     break;
                 }
@@ -1361,7 +1381,6 @@ fn draw_help_section(f: &mut Frame, area: Rect) {
 
     f.render_widget(help_paragraph, area);
 }
-
 fn draw_status_bar(f: &mut Frame, app: &App, area: Rect) {
     // Create the status bar background
     let status_block = Block::default()
@@ -1371,31 +1390,98 @@ fn draw_status_bar(f: &mut Frame, app: &App, area: Rect) {
 
     f.render_widget(status_block, area);
 
-    // Split the area into left (status message) and right (key hints)
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
-        .split(area);
+    // Check if we need to show auto-lock countdown
+    let show_countdown = app
+        .get_countdown_info()
+        .is_some_and(|info| info.minutes_left <= 3 && info.enabled);
 
-    // Left side: Status message or default context
-    let (message, message_style) = get_status_message_and_style(app);
-    let status_paragraph = Paragraph::new(Line::from(vec![
-        Span::raw(" "), // Small padding
-        Span::styled(message, message_style),
-    ]))
-    .style(Style::default().bg(c_bg_panel()))
-    .wrap(Wrap { trim: true });
+    if show_countdown {
+        // Split into three parts: status message, countdown, key hints
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(50), // Status message
+                Constraint::Length(20),     // Countdown
+                Constraint::Min(20),        // Key hints
+            ])
+            .split(area);
 
-    f.render_widget(status_paragraph, chunks[0]);
-
-    // Right side: Key hints
-    let key_hints = get_key_hints_for_screen(app);
-    let hints_paragraph = Paragraph::new(Line::from(key_hints))
-        .style(Style::default().bg(c_bg_panel()).fg(c_text_dim()))
-        .alignment(Alignment::Right)
+        // Left side: Status message
+        let (message, message_style) = get_status_message_and_style(app);
+        let status_paragraph = Paragraph::new(Line::from(vec![
+            Span::raw(" "), // Small padding
+            Span::styled(message, message_style),
+        ]))
+        .style(Style::default().bg(c_bg_panel()))
         .wrap(Wrap { trim: true });
 
-    f.render_widget(hints_paragraph, chunks[1]);
+        f.render_widget(status_paragraph, chunks[0]);
+
+        // Middle: Auto-lock countdown
+        if let Some(countdown_info) = app.get_countdown_info() {
+            let countdown_text = if countdown_info.seconds_left > 0 {
+                format!(
+                    "🔒 {}m{}s",
+                    countdown_info.minutes_left,
+                    countdown_info.seconds_left % 60
+                )
+            } else {
+                "🔒 Locking...".to_string()
+            };
+
+            let countdown_color = if countdown_info.minutes_left <= 1 {
+                Color::Red
+            } else if countdown_info.minutes_left <= 2 {
+                Color::Yellow
+            } else {
+                Color::Cyan
+            };
+
+            let countdown_paragraph = Paragraph::new(Line::from(vec![Span::styled(
+                countdown_text,
+                Style::default().fg(countdown_color).add_modifier(Modifier::BOLD),
+            )]))
+            .style(Style::default().bg(c_bg_panel()))
+            .alignment(Alignment::Center);
+
+            f.render_widget(countdown_paragraph, chunks[1]);
+        }
+
+        // Right side: Key hints
+        let key_hints = get_key_hints_for_screen(app);
+        let hints_paragraph = Paragraph::new(Line::from(key_hints))
+            .style(Style::default().bg(c_bg_panel()).fg(c_text_dim()))
+            .alignment(Alignment::Right)
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(hints_paragraph, chunks[2]);
+    } else {
+        // Normal layout without countdown
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+            .split(area);
+
+        // Left side: Status message
+        let (message, message_style) = get_status_message_and_style(app);
+        let status_paragraph = Paragraph::new(Line::from(vec![
+            Span::raw(" "), // Small padding
+            Span::styled(message, message_style),
+        ]))
+        .style(Style::default().bg(c_bg_panel()))
+        .wrap(Wrap { trim: true });
+
+        f.render_widget(status_paragraph, chunks[0]);
+
+        // Right side: Key hints
+        let key_hints = get_key_hints_for_screen(app);
+        let hints_paragraph = Paragraph::new(Line::from(key_hints))
+            .style(Style::default().bg(c_bg_panel()).fg(c_text_dim()))
+            .alignment(Alignment::Right)
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(hints_paragraph, chunks[1]);
+    }
 }
 
 fn get_status_message_and_style(app: &App) -> (String, Style) {
