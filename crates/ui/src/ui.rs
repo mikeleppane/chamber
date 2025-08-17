@@ -176,6 +176,31 @@ pub fn run_app(app: &mut App) -> Result<()> {
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::cognitive_complexity)]
 fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
+    if app.search_mode {
+        match key.code {
+            KeyCode::Esc => {
+                app.search_mode = false;
+                return Ok(false);
+            }
+            KeyCode::Enter => {
+                app.search_mode = false;
+                app.update_filtered_items();
+                return Ok(false);
+            }
+            KeyCode::Backspace => {
+                app.search_query.pop();
+                app.update_filtered_items();
+                return Ok(false);
+            }
+            KeyCode::Char(c) => {
+                app.search_query.push(c);
+                app.update_filtered_items();
+                return Ok(false);
+            }
+            _ => return Ok(false),
+        }
+    }
+
     // Handle global Ctrl combinations FIRST, before screen-specific logic
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         match key.code {
@@ -403,6 +428,15 @@ fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
             }
             KeyCode::F(2) => {
                 app.open_vault_selector();
+            }
+            KeyCode::Char('/' | 's') => {
+                app.search_mode = true;
+            }
+            KeyCode::Esc => {
+                if !app.search_query.is_empty() {
+                    app.search_query.clear();
+                    app.update_filtered_items();
+                }
             }
             _ => {}
         },
@@ -844,8 +878,44 @@ fn draw_main(f: &mut Frame, app: &App, body: Rect) {
 
 #[allow(clippy::too_many_lines)]
 fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
-    // Calculate viewport dimensions
-    let viewport_height = area.height.saturating_sub(2) as usize; // account for borders
+    // Create layout for search bar and items list
+    let (search_area, items_area) = if app.search_mode || !app.search_query.is_empty() {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(1)])
+            .split(area);
+        (Some(chunks[0]), chunks[1])
+    } else {
+        (None, area) // Use full area if no search
+    };
+
+    // Draw search bar if needed
+    if let Some(search_rect) = search_area {
+        let search_text = if app.search_mode {
+            format!("Search: {}_", app.search_query) // Show cursor when in search mode
+        } else {
+            format!("Search: {} (Press '/' or 's' to edit, Esc to clear)", app.search_query)
+        };
+
+        let search_style = if app.search_mode {
+            Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(c_text_dim())
+        };
+
+        let search_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(if app.search_mode { c_accent() } else { c_border() }))
+            .style(Style::default().bg(c_bg_panel()));
+
+        let search_paragraph = Paragraph::new(search_text).style(search_style).block(search_block);
+
+        f.render_widget(search_paragraph, search_rect);
+    }
+
+    // Calculate viewport dimensions for items area
+    let viewport_height = items_area.height.saturating_sub(2) as usize; // account for borders
     let content_length = app.filtered_items.len();
 
     // Calculate what items to show based on scroll offset
@@ -937,7 +1007,7 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
             Err(_) => "unknown".to_string(),
         };
 
-        let content_width = area.width.saturating_sub(8) as usize;
+        let content_width = items_area.width.saturating_sub(8) as usize;
         let max_name_width = content_width.saturating_sub(20); // Conservative estimate for all fixed elements
 
         let truncated_name = if max_name_width < 1 {
@@ -946,15 +1016,27 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
             truncate_text(&item.name, max_name_width.max(1))
         };
 
-        let item_line = Line::from(vec![
-            Span::raw("    "), // Indentation for items under category
-            Span::styled(format!("{badge} "), Style::default().fg(badge_color)),
-            Span::styled(
+        // Highlight search matches in the item name
+        let item_name_spans = if !app.search_query.is_empty() && !app.search_mode {
+            highlight_search_matches(&truncated_name, &app.search_query, c_text(), c_accent())
+        } else {
+            vec![Span::styled(
                 truncated_name,
                 Style::default().fg(c_text()).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(format!(" ({created_date})"), Style::default().fg(c_text_dim())),
-        ]);
+            )]
+        };
+
+        let mut item_line_spans = vec![
+            Span::raw("    "), // Indentation for items under category
+            Span::styled(format!("{badge} "), Style::default().fg(badge_color)),
+        ];
+        item_line_spans.extend(item_name_spans);
+        item_line_spans.push(Span::styled(
+            format!(" ({created_date})"),
+            Style::default().fg(c_text_dim()),
+        ));
+
+        let item_line = Line::from(item_line_spans);
 
         // Highlight selected item
         let item_style = if app.selected == index {
@@ -969,13 +1051,17 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
         list_items.push(ListItem::new(item_line).style(item_style));
     }
 
-    // Show empty state if no items
+    // Show empty state or search results info
     if list_items.is_empty() && app.filtered_items.is_empty() {
-        let empty_message = match app.view_mode {
-            ViewMode::All => "No items in vault",
-            ViewMode::Passwords => "No passwords stored",
-            ViewMode::Environment => "No environment variables stored",
-            ViewMode::Notes => "No notes stored",
+        let empty_message = if app.search_query.is_empty() {
+            match app.view_mode {
+                ViewMode::All => "No items in vault".to_string(),
+                ViewMode::Passwords => "No passwords stored".to_string(),
+                ViewMode::Environment => "No environment variables stored".to_string(),
+                ViewMode::Notes => "No notes stored".to_string(),
+            }
+        } else {
+            format!("No items match search: '{}'", app.search_query)
         };
 
         list_items.push(ListItem::new(Line::from(vec![Span::styled(
@@ -984,12 +1070,22 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
         )])));
     }
 
-    let items_title = format!(
-        " {} ({}/{}) ",
-        app.view_mode.as_str(),
-        app.filtered_items.len(),
-        app.items.len()
-    );
+    let items_title = if app.search_query.is_empty() {
+        format!(
+            " {} ({}/{}) ",
+            app.view_mode.as_str(),
+            app.filtered_items.len(),
+            app.items.len()
+        )
+    } else {
+        format!(
+            " {} ({}/{}) - Search: '{}' ",
+            app.view_mode.as_str(),
+            app.filtered_items.len(),
+            app.items.len(),
+            app.search_query
+        )
+    };
 
     let list_block = Block::default()
         .borders(Borders::ALL)
@@ -1002,7 +1098,7 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
         ));
 
     let list = List::new(list_items).block(list_block.clone());
-    f.render_widget(list, area);
+    f.render_widget(list, items_area);
 
     // Create scrollbar
     let mut scrollbar_state =
@@ -1014,7 +1110,7 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
         .thumb_style(Style::default().fg(c_accent()).add_modifier(Modifier::BOLD))
         .track_style(Style::default().fg(c_text_dim()));
 
-    let inner_area = list_block.inner(area);
+    let inner_area = list_block.inner(items_area);
     let scrollbar_area = Rect {
         x: inner_area.x + inner_area.width.saturating_sub(1),
         y: inner_area.y,
@@ -1022,6 +1118,59 @@ fn draw_items_section(f: &mut Frame, app: &App, area: Rect) {
         height: inner_area.height,
     };
     f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+}
+
+// Helper function to highlight search matches in text
+fn highlight_search_matches(
+    text: &str,
+    query: &str,
+    normal_color: Color,
+    highlight_color: Color,
+) -> Vec<Span<'static>> {
+    if query.is_empty() {
+        return vec![Span::styled(
+            text.to_string(),
+            Style::default().fg(normal_color).add_modifier(Modifier::BOLD),
+        )];
+    }
+
+    let mut spans = Vec::new();
+    let text_lower = text.to_lowercase();
+    let query_lower = query.to_lowercase();
+    let mut last_end = 0;
+
+    // Find all matches
+    for match_start in text_lower.match_indices(&query_lower).map(|(i, _)| i) {
+        // Add text before match
+        if match_start > last_end {
+            spans.push(Span::styled(
+                text[last_end..match_start].to_string(),
+                Style::default().fg(normal_color).add_modifier(Modifier::BOLD),
+            ));
+        }
+
+        // Add highlighted match
+        let match_end = match_start + query.len();
+        spans.push(Span::styled(
+            text[match_start..match_end].to_string(),
+            Style::default()
+                .fg(highlight_color)
+                .bg(Color::Rgb(60, 60, 0))
+                .add_modifier(Modifier::BOLD),
+        ));
+
+        last_end = match_end;
+    }
+
+    // Add remaining text
+    if last_end < text.len() {
+        spans.push(Span::styled(
+            text[last_end..].to_string(),
+            Style::default().fg(normal_color).add_modifier(Modifier::BOLD),
+        ));
+    }
+
+    spans
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1152,6 +1301,10 @@ fn draw_help_section(f: &mut Frame, area: Rect) {
         Line::from(vec![
             Span::styled("c ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
             Span::raw("Copy value"),
+        ]),
+        Line::from(vec![
+            Span::styled("s or / ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
+            Span::raw("Start search"),
         ]),
         Line::from(vec![
             Span::styled("g ", Style::default().fg(c_accent()).add_modifier(Modifier::BOLD)),
@@ -1298,14 +1451,41 @@ fn get_key_hints_for_screen(app: &App) -> Vec<Span<'static>> {
             add_hint(&mut spans, "Enter", "Unlock", true);
         }
         Screen::Main => {
-            add_hint(&mut spans, "↑↓", "Navigate", false);
-            add_hint(&mut spans, "Enter", "View", true);
-            add_hint(&mut spans, "a", "Add", false);
-            add_hint(&mut spans, "e", "Edit", false);
-            add_hint(&mut spans, "Del", "Delete", false);
+            if app.search_mode {
+                // When in search mode, show search-specific hints
+                add_hint(&mut spans, "Type", "Search", true);
+                add_hint(&mut spans, "Enter", "Confirm", false);
+                add_hint(&mut spans, "Esc", "Exit Search", false);
+            } else {
+                // Normal main screen navigation
+                add_hint(&mut spans, "↑↓", "Navigate", false);
+
+                if !app.filtered_items.is_empty() {
+                    add_hint(&mut spans, "Enter", "View", true);
+                    add_hint(&mut spans, "e", "Edit", false);
+                    add_hint(&mut spans, "c", "Copy", false);
+                    add_hint(&mut spans, "Del", "Delete", false);
+                }
+
+                add_hint(&mut spans, "a", "Add", false);
+                add_hint(&mut spans, "/", "Search", false);
+
+                // Show different Esc behavior based on search state
+                if app.search_query.is_empty() {
+                    add_hint(&mut spans, "q", "Quit", false);
+                } else {
+                    add_hint(&mut spans, "Esc", "Clear Search", false);
+                }
+
+                add_hint(&mut spans, "g", "Generate", false);
+                add_hint(&mut spans, "i", "Import", false);
+                add_hint(&mut spans, "o", "Export", false);
+                add_hint(&mut spans, "v", "Vaults", false);
+            }
         }
         Screen::AddItem => {
             add_hint(&mut spans, "Tab", "Next Field", false);
+            add_hint(&mut spans, "Ctrl+V", "Paste", false);
             add_hint(&mut spans, "Enter", "Save", true);
             add_hint(&mut spans, "Esc", "Cancel", false);
         }
@@ -1336,6 +1516,7 @@ fn get_key_hints_for_screen(app: &App) -> Vec<Span<'static>> {
             add_hint(&mut spans, "Esc", "Cancel", false);
         }
         Screen::VaultSelector => {
+            add_hint(&mut spans, "↑↓", "Navigate", false);
             add_hint(&mut spans, "Tab", "Next Field", false);
             add_hint(&mut spans, "Enter", "Select", true);
             add_hint(&mut spans, "Esc", "Close", false);
