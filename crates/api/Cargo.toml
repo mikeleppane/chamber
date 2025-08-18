@@ -1,21 +1,21 @@
 [package]
 name = "chamber-api"
-version = "0.2.0"
-description = "Chamber secrets manager API"
-
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
+homepage.workspace = true
+description = "REST API server for Chamber secrets manager"
+keywords = ["api", "rest", "server", "secrets", "web"]
 categories.workspace = true
+readme = "README.md"
 
 [dependencies]
-chamber-vault = { path = "../vault" }
-chamber-password-gen = { path = "../password-gen" }
-chamber-import-export = { path = "../import-export" }
+chamber-vault = {workspace = true}
+chamber-password-gen = {workspace = true}
+chamber-import-export = {workspace = true}
 axum = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}

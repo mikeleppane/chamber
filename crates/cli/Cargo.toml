@@ -1,13 +1,22 @@
 [package]
-name = "chamber-cli"
-version = "0.5.0"
-edition = "2024"
+name = "chamber-secret-manager-cli"
+version = "0.2.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "CLI interface for Chamber secrets manager"
+keywords = ["cli", "commands", "shell"]
+categories.workspace = true
+readme = "README.md"
+
 
 [dependencies]
-chamber-vault = { workspace = true }
-chamber-import-export = { workspace = true  }
-chamber-password-gen = { workspace = true  }
+chamber-vault = {workspace = true}
+chamber-import-export = {workspace = true}
+chamber-password-gen = {workspace = true}
 chamber-backup = {workspace = true}
 chamber-api = {workspace = true}
 color-eyre = {workspace = true}
@@ -20,5 +29,6 @@ arboard = {workspace = true}
 tokio = {workspace = true}
 tracing = {workspace = true}
 tracing-subscriber = {workspace = true}
+
 [dev-dependencies]
-time = "0.3.41"
+time = {workspace = true}

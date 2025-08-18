@@ -65,7 +65,7 @@ and other secrets with strong cryptographic guarantees.
 
 ## 🚀 Getting Started
 ### Prerequisites
-- **Rust**: Version 1.89.0 or newer
+- **Rust**: Version 1.85.0 or newer
 - **Operating System**: Windows 11, macOS, or Linux
 - **Terminal**: Modern terminal with Unicode support (recommended)
 
@@ -73,7 +73,7 @@ and other secrets with strong cryptographic guarantees.
 #### From Source
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/chamber.git
+git clone https://github.com/mikeleppane/chamber.git
 cd chamber
 
 # Build the project
@@ -84,11 +84,8 @@ cargo build --release
 ```
 #### Using Cargo
 ```bash
-# Install directly from Git
-cargo install --git https://github.com/your-org/chamber.git
+cargo install chamber-tui
 
-# Run Chamber
-chamber
 ```
 ### Quick Start
 1. **Initialize a new vault**:

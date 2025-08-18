@@ -1,8 +1,17 @@
 [package]
 name = "chamber-vault"
-version = "0.5.1"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "Core vault functionality for Chamber secrets manager"
+keywords = ["vault", "encryption", "secrets", "storage"]
+categories.workspace = true
+readme = "README.md"
+
 
 [dependencies]
 argon2 = { workspace = true }

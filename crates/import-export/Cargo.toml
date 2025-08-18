@@ -1,11 +1,20 @@
 [package]
 name = "chamber-import-export"
-version = "0.4.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "Import/export functionality for Chamber secrets manager"
+keywords = ["import", "export", "csv", "json"]
+categories.workspace = true
+readme = "README.md"
+
 
 [dependencies]
-chamber-vault = { path = "../vault" }
+chamber-vault = {workspace = true}
 serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
