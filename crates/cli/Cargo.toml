@@ -1,5 +1,5 @@
 [package]
-name = "chamber--secret-manager-cli"
+name = "chamber-secret-manager-cli"
 version = "0.5.2"
 edition.workspace = true
 rust-version.workspace = true
