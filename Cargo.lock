@@ -416,22 +416,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chamber"
-version = "0.5.2"
-dependencies = [
- "chamber-backup 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-secret-manager-cli 0.5.2",
- "chamber-ui 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "clap",
- "color-eyre",
- "crossterm 0.29.0",
- "jemallocator",
- "mimalloc",
- "tokio",
-]
-
-[[package]]
 name = "chamber-api"
 version = "0.5.2"
 dependencies = [
@@ -596,6 +580,22 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "chamber-tui"
+version = "0.5.2"
+dependencies = [
+ "chamber-backup 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-secret-manager-cli 0.5.2",
+ "chamber-ui 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clap",
+ "color-eyre",
+ "crossterm 0.29.0",
+ "jemallocator",
+ "mimalloc",
+ "tokio",
 ]
 
 [[package]]

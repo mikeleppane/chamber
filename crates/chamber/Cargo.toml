@@ -1,5 +1,5 @@
 [package]
-name = "chamber"
+name = "chamber-tui"
 version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
