@@ -10,7 +10,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.5.2"
+version = "0.5.3"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Mikko Leppänen <mleppan23@gmail.com>"]
@@ -85,11 +85,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 jsonwebtoken = "9"
 
 
-
 [profile.release]
+opt-level = 3
+debug = false
 lto = true
 codegen-units = 1
-opt-level = 3
+panic = "abort"
 strip = true
 
 [profile.dev]

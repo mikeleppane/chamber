@@ -41,7 +41,6 @@ logs/
 .env
 .env.local
 .env.*.local
-config.toml
 config.json
 
 # Database files (SQLite)

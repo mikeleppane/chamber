@@ -417,7 +417,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-api"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "arboard",
  "axum",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-backup"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "chamber-import-export",
  "chamber-vault",
@@ -457,7 +457,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-import-export"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "chamber-vault",
  "color-eyre",
@@ -470,7 +470,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-password-gen"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "color-eyre",
  "criterion",
@@ -516,7 +516,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-ui"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "arboard",
  "async-trait",
@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "chamber-vault"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "argon2",
  "async-trait",
