@@ -1,6 +1,6 @@
 use chamber_backup::BackgroundService;
-use chamber_cli::Cli;
-use chamber_cli::handle_command;
+use chamber_secret_manager_cli::Cli;
+use chamber_secret_manager_cli::handle_command;
 use chamber_ui::{App, run_app};
 use chamber_vault::Vault;
 use clap::Parser;

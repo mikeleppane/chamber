@@ -15,7 +15,7 @@ readme = "../../README.md"
 
 [dependencies]
 chamber-backup = "0.5.2"
-chamber-cli = "0.2.0"
+chamber-secret-manager-cli = "0.5.2"
 chamber-ui = "0.5.2"
 chamber-vault = "0.5.2"
 crossterm = {workspace = true}

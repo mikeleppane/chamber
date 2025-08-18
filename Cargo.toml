@@ -23,7 +23,7 @@ repository = "https://github.com/mikeleppane/visualvault"
 categories = ["command-line-utilities", "filesystem"]
 
 [workspace.dependencies]
-chamber-cli = {path = "crates/cli"}
+chamber-secret-manager-cli = {path = "crates/cli"}
 chamber-import-export = {path = "crates/import-export"}
 chamber-password-gen = {path = "crates/password-gen"}
 chamber-vault = {path = "crates/vault"}
@@ -41,6 +41,7 @@ zeroize = { version = "1.8.1", features = ["derive", "serde"] }
 
 # Database
 rusqlite = { version = "0.37.0", features = ["bundled"] }
+
 
 # Serialization
 serde = { version = "1.0.219", features = ["derive"] }
