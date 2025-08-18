@@ -1,8 +1,17 @@
 [package]
 name = "chamber-cli"
-version = "0.5.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "CLI interface for Chamber secrets manager"
+keywords = ["cli", "commands", "shell"]
+categories.workspace = true
+readme = "README.md"
+
 
 [dependencies]
 chamber-vault = { workspace = true }
@@ -20,5 +29,6 @@ arboard = {workspace = true}
 tokio = {workspace = true}
 tracing = {workspace = true}
 tracing-subscriber = {workspace = true}
+
 [dev-dependencies]
 time = "0.3.41"

@@ -80,3 +80,7 @@ massif.*
 # Security scanning results
 audit.json
 
+# Python
+
+/venv
+.venv
