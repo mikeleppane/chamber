@@ -543,9 +543,9 @@ version = "0.5.2"
 dependencies = [
  "arboard",
  "async-trait",
- "chamber-import-export 0.5.2",
- "chamber-password-gen 0.5.2",
- "chamber-vault 0.5.2",
+ "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-password-gen 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono",
  "color-eyre",
  "dirs",
