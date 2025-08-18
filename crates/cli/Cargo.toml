@@ -1,6 +1,6 @@
 [package]
-name = "chamber-cli"
-version.workspace = true
+name = "chamber--secret-manager-cli"
+version = "0.5.2"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -14,11 +14,11 @@ readme = "README.md"
 
 
 [dependencies]
-chamber-vault = { workspace = true }
-chamber-import-export = { workspace = true  }
-chamber-password-gen = { workspace = true  }
-chamber-backup = {workspace = true}
-chamber-api = {workspace = true}
+chamber-vault = "0.5.2"
+chamber-import-export = "0.5.2"
+chamber-password-gen = "0.5.2"
+chamber-backup = "0.5.2"
+chamber-api = "0.5.2"
 color-eyre = {workspace = true}
 clap = { workspace = true }
 rpassword = { workspace = true }
