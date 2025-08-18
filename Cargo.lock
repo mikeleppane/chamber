@@ -422,7 +422,7 @@ dependencies = [
  "chamber-backup",
  "chamber-cli",
  "chamber-ui",
- "chamber-vault",
+ "chamber-vault 0.5.2",
  "clap",
  "color-eyre",
  "crossterm 0.29.0",
@@ -440,7 +440,7 @@ dependencies = [
  "axum-test",
  "chamber-import-export",
  "chamber-password-gen",
- "chamber-vault",
+ "chamber-vault 0.5.2",
  "chrono",
  "color-eyre",
  "http",
@@ -462,7 +462,7 @@ name = "chamber-backup"
 version = "0.5.2"
 dependencies = [
  "chamber-import-export",
- "chamber-vault",
+ "chamber-vault 0.5.2",
  "color-eyre",
  "criterion",
  "flate2",
@@ -480,7 +480,7 @@ dependencies = [
  "chamber-backup",
  "chamber-import-export",
  "chamber-password-gen",
- "chamber-vault",
+ "chamber-vault 0.5.2",
  "chrono",
  "clap",
  "color-eyre",
@@ -496,7 +496,7 @@ dependencies = [
 name = "chamber-import-export"
 version = "0.5.2"
 dependencies = [
- "chamber-vault",
+ "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "color-eyre",
  "criterion",
  "serde",
@@ -522,7 +522,7 @@ dependencies = [
  "async-trait",
  "chamber-import-export",
  "chamber-password-gen",
- "chamber-vault",
+ "chamber-vault 0.5.2",
  "chrono",
  "color-eyre",
  "dirs",
@@ -549,6 +549,31 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
+name = "chamber-vault"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c407e49107e8e0165a2428cb06a886447664fe3770f6b5240c96bd4a4d3a4bc2"
+dependencies = [
+ "argon2",
+ "async-trait",
+ "chacha20poly1305",
+ "chrono",
+ "color-eyre",
+ "dirs",
+ "getrandom 0.3.3",
+ "hmac",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
  "time",
  "tokio",
  "tracing",

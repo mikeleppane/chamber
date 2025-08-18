@@ -14,7 +14,7 @@ readme = "README.md"
 
 
 [dependencies]
-chamber-vault = {workspace = true}
+chamber-vault = "0.5.2"
 serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
