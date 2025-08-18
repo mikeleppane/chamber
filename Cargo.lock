@@ -438,7 +438,7 @@ dependencies = [
  "arboard",
  "axum",
  "axum-test",
- "chamber-import-export",
+ "chamber-import-export 0.5.2",
  "chamber-password-gen",
  "chamber-vault 0.5.2",
  "chrono",
@@ -461,8 +461,8 @@ dependencies = [
 name = "chamber-backup"
 version = "0.5.2"
 dependencies = [
- "chamber-import-export",
- "chamber-vault 0.5.2",
+ "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "color-eyre",
  "criterion",
  "flate2",
@@ -478,7 +478,7 @@ dependencies = [
  "arboard",
  "chamber-api",
  "chamber-backup",
- "chamber-import-export",
+ "chamber-import-export 0.5.2",
  "chamber-password-gen",
  "chamber-vault 0.5.2",
  "chrono",
@@ -506,6 +506,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "chamber-import-export"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70449f2c36e2f0bd3f52169c5db78b40063af19b92c45ccfbd1e3be61a39d11c"
+dependencies = [
+ "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "color-eyre",
+ "serde",
+ "serde_json",
+ "time",
+]
+
+[[package]]
 name = "chamber-password-gen"
 version = "0.5.2"
 dependencies = [
@@ -520,7 +533,7 @@ version = "0.5.2"
 dependencies = [
  "arboard",
  "async-trait",
- "chamber-import-export",
+ "chamber-import-export 0.5.2",
  "chamber-password-gen",
  "chamber-vault 0.5.2",
  "chrono",
