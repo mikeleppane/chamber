@@ -422,9 +422,9 @@ dependencies = [
  "arboard",
  "axum",
  "axum-test",
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-password-gen 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-import-export",
+ "chamber-password-gen",
+ "chamber-vault",
  "chrono",
  "color-eyre",
  "http",
@@ -442,35 +442,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "chamber-api"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73e8bca1064431d3943555bacf331aa1a9a09d4aecb2358e814d4d2d56ccdf72"
-dependencies = [
- "arboard",
- "axum",
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-password-gen 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chrono",
- "color-eyre",
- "jsonwebtoken",
- "md5",
- "rand",
- "serde",
- "serde_json",
- "tokio",
- "tower-http",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "chamber-backup"
 version = "0.5.2"
 dependencies = [
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-import-export",
+ "chamber-vault",
  "color-eyre",
  "criterion",
  "flate2",
@@ -480,24 +456,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "chamber-backup"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3163ec6e731c18c10c870c048a4e3d5bf61951a109876a6e62d988742f9025c6"
-dependencies = [
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "color-eyre",
- "flate2",
- "serde_json",
- "time",
-]
-
-[[package]]
 name = "chamber-import-export"
 version = "0.5.2"
 dependencies = [
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-vault",
  "color-eyre",
  "criterion",
  "serde",
@@ -507,34 +469,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "chamber-import-export"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70449f2c36e2f0bd3f52169c5db78b40063af19b92c45ccfbd1e3be61a39d11c"
-dependencies = [
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "color-eyre",
- "serde",
- "serde_json",
- "time",
-]
-
-[[package]]
 name = "chamber-password-gen"
 version = "0.5.2"
 dependencies = [
  "color-eyre",
  "criterion",
- "rand",
-]
-
-[[package]]
-name = "chamber-password-gen"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fff658ea539d9558801091914e6ca7136ec2e8a17cb732eb3c95b26ae3777c8"
-dependencies = [
- "color-eyre",
  "rand",
 ]
 
@@ -543,34 +482,11 @@ name = "chamber-secret-manager-cli"
 version = "0.2.0"
 dependencies = [
  "arboard",
- "chamber-api 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-backup 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-password-gen 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chrono",
- "clap",
- "color-eyre",
- "regex",
- "rpassword",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "chamber-secret-manager-cli"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7570185b3454d00107456592f73f1d22aa95c4d0685d222f4ce897c504f9fd84"
-dependencies = [
- "arboard",
- "chamber-api 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-backup 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-password-gen 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-api",
+ "chamber-backup",
+ "chamber-import-export",
+ "chamber-password-gen",
+ "chamber-vault",
  "chrono",
  "clap",
  "color-eyre",
@@ -586,10 +502,10 @@ dependencies = [
 name = "chamber-tui"
 version = "0.5.2"
 dependencies = [
- "chamber-backup 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-secret-manager-cli 0.5.2",
- "chamber-ui 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-backup",
+ "chamber-secret-manager-cli",
+ "chamber-ui",
+ "chamber-vault",
  "clap",
  "color-eyre",
  "crossterm 0.29.0",
@@ -604,28 +520,9 @@ version = "0.5.2"
 dependencies = [
  "arboard",
  "async-trait",
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-password-gen 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chrono",
- "color-eyre",
- "dirs",
- "ratatui",
- "time",
- "tui-textarea",
-]
-
-[[package]]
-name = "chamber-ui"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53b098aa1bce7899dd92490c253809bfa027fe23f2918e004c23b9c5b5482785"
-dependencies = [
- "arboard",
- "async-trait",
- "chamber-import-export 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-password-gen 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "chamber-vault 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-import-export",
+ "chamber-password-gen",
+ "chamber-vault",
  "chrono",
  "color-eyre",
  "dirs",
@@ -652,31 +549,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
- "time",
- "tokio",
- "tracing",
- "uuid",
- "zeroize",
-]
-
-[[package]]
-name = "chamber-vault"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c407e49107e8e0165a2428cb06a886447664fe3770f6b5240c96bd4a4d3a4bc2"
-dependencies = [
- "argon2",
- "async-trait",
- "chacha20poly1305",
- "chrono",
- "color-eyre",
- "dirs",
- "getrandom 0.3.3",
- "hmac",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
  "time",
  "tokio",
  "tracing",

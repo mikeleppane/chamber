@@ -74,6 +74,7 @@ def get_crate_path(crate_name: str, project_root: Path) -> Path:
 
     return project_root / "crates" / folder_name
 
+# ... existing code ...
 def publish_crate(crate_path: Path, dry_run: bool = False) -> bool:
     """Publish a single crate"""
     print(f"🚀 Publishing {crate_path.name}...")
@@ -84,20 +85,27 @@ def publish_crate(crate_path: Path, dry_run: bool = False) -> bool:
         print(f"  ❌ Build failed for {crate_path.name}: {result.stderr}")
         return False
 
-    # Choose the appropriate command
-    if dry_run:
-        cmd = ["cargo", "publish", "--dry-run", "--allow-dirty"]
-        action = "Dry run"
-    else:
-        cmd = ["cargo", "publish"]
-        action = "Publish"
-
-    result = subprocess.run(cmd, cwd=crate_path, capture_output=True, text=True)
+    # Package (no --dry-run flag exists for cargo package)
+    result = subprocess.run(["cargo", "package"], cwd=crate_path, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"  ❌ {action} failed for {crate_path.name}: {result.stderr}")
+        print(f"  ❌ Package failed for {crate_path.name}: {result.stderr}")
         return False
 
-    print(f"  ✅ {action} successful for {crate_path.name}")
+    if dry_run:
+        # Validate full publish flow without uploading
+        result = subprocess.run(["cargo", "publish", "--dry-run"], cwd=crate_path, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"  ❌ Publish dry-run failed for {crate_path.name}: {result.stderr}")
+            return False
+        print(f"  ✅ Dry run successful for {crate_path.name}")
+    else:
+        # Actually publish
+        result = subprocess.run(["cargo", "publish"], cwd=crate_path, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"  ❌ Publish failed for {crate_path.name}: {result.stderr}")
+            return False
+        print(f"  ✅ Successfully published {crate_path.name}")
+
     return True
 
 def main():

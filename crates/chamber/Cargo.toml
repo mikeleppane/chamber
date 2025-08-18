@@ -14,10 +14,10 @@ readme = "../../README.md"
 
 
 [dependencies]
-chamber-backup = "0.5.2"
-chamber-secret-manager-cli = "0.5.2"
-chamber-ui = "0.5.2"
-chamber-vault = "0.5.2"
+chamber-backup = {workspace = true}
+chamber-secret-manager-cli = {workspace = true}
+chamber-ui = {workspace = true}
+chamber-vault = {workspace = true}
 crossterm = {workspace = true}
 clap = {workspace = true}
 color-eyre = {workspace = true}

@@ -13,9 +13,9 @@ categories.workspace = true
 readme = "README.md"
 
 [dependencies]
-chamber-vault = "0.5.2"
-chamber-password-gen = "0.5.2"
-chamber-import-export = "0.5.2"
+chamber-vault = {workspace = true}
+chamber-password-gen = {workspace = true}
+chamber-import-export = {workspace = true}
 axum = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
