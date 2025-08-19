@@ -87,6 +87,26 @@ cargo build --release
 cargo install chamber-tui
 
 ```
+
+#### Pre-built Binaries
+We provide pre-built binaries for multiple platforms as part of each release:
+
+**Supported Platforms:**
+- **Linux**: x86_64 (Intel/AMD 64-bit), ARM64 (Apple Silicon/ARM64)
+  - Standard glibc builds: `chamber-linux-amd64`, `chamber-linux-arm64`
+  - Static MUSL builds: `chamber-linux-amd64-static` (no dependencies required)
+- **Windows**: x86_64 (Intel/AMD 64-bit) - `chamber-windows-amd64.exe`
+- **macOS**: x86_64 (Intel 64-bit) - `chamber-macos-amd64`
+
+Download the latest release from [GitHub Releases](https://github.com/mikeleppane/chamber/releases).
+
+#### Docker Support
+We provide official Docker images for containerized deployments:
+
+**Supported Architectures:**
+- **linux/amd64** (x86_64 Intel/AMD)
+- **linux/arm64** (ARM64/Apple Silicon)
+
 ### Quick Start
 1. **Initialize a new vault**:
 ```bash
